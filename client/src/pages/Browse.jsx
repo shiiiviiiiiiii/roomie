@@ -4,6 +4,7 @@ import { api } from '../api';
 import { CITIES, BHK_OPTIONS, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, inrShort } from '../format';
 import ListingCard from '../components/ListingCard';
 import ListingsMap from '../components/ListingsMap';
+import PlaceSearch from '../components/PlaceSearch';
 import { useAuth } from '../App';
 
 // Free geocoding (OpenStreetMap Nominatim) — turns "near my office/college"
@@ -48,6 +49,17 @@ export default function Browse() {
     setNearText(''); setNearLabel('');
   };
 
+  const applyNearPlace = (g) => {
+    setGeoError('');
+    const next = new URLSearchParams(params);
+    next.set('near_lat', g.lat.toFixed(4));
+    next.set('near_lng', g.lng.toFixed(4));
+    next.set('near_km', '8');
+    next.set('near_label', g.name);
+    setParams(next);
+    setNearLabel(g.name);
+  };
+
   const applyNear = async (e) => {
     e.preventDefault();
     setGeoError('');
@@ -55,13 +67,7 @@ export default function Browse() {
     if (!t) return;
     try {
       const g = await geocode(t);
-      const next = new URLSearchParams(params);
-      next.set('near_lat', g.lat.toFixed(4));
-      next.set('near_lng', g.lng.toFixed(4));
-      next.set('near_km', '8');
-      next.set('near_label', g.name);
-      setParams(next);
-      setNearLabel(g.name);
+      applyNearPlace(g);
     } catch (err) { setGeoError(err.message); }
   };
 
@@ -120,11 +126,11 @@ export default function Browse() {
           <input placeholder="Search area, keyword…" value={f.q} onChange={(e) => set('q', e.target.value)} aria-label="Keyword" />
         </div>
         <div className="bs-field">
-          <input
-            placeholder="Near office / college…"
+          <PlaceSearch
             value={nearText}
-            onChange={(e) => setNearText(e.target.value)}
-            aria-label="Near office or college"
+            onChange={setNearText}
+            onSelect={applyNearPlace}
+            placeholder="Near office / college…"
           />
         </div>
         <div className="bs-field narrow">

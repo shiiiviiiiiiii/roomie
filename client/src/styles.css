@@ -2148,3 +2148,22 @@ a.notif:hover {
 /* Listing alerts */
 .alert-row { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0; }
 .alert-row input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--brand); }
+
+/* Place autocomplete (Nominatim) */
+.place-search { position: relative; }
+.place-search .input { width: 100%; }
+.place-results {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 600;
+  list-style: none; margin: 0; padding: 6px;
+  background: #fff; border: 1px solid #e5ddd0; border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(46, 32, 22, 0.16);
+  max-height: 260px; overflow-y: auto;
+}
+.place-results li {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 9px 10px; border-radius: 8px; cursor: pointer;
+  font-size: 14px; line-height: 1.4; color: var(--espresso);
+}
+.place-results li.hl { background: var(--brand-soft); }
+.place-results .pin { flex-shrink: 0; }
+.place-loading { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #999; }

@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import PlaceSearch from './PlaceSearch';
 
 // Tap-to-place pin picker for the Post-a-room flow.
 // The pin is draggable; only an approximate location is ever shown publicly
@@ -29,6 +30,7 @@ export default function LocationPicker({ city, lat, lng, onPick, initialCenter }
     const markerRef = useRef(null);
     const onPickRef = useRef(onPick);
     onPickRef.current = onPick;
+    const [searchText, setSearchText] = useState('');
 
     // Create the map once.
     useEffect(() => {
@@ -78,11 +80,19 @@ export default function LocationPicker({ city, lat, lng, onPick, initialCenter }
 
     return (
         <>
-            <div ref={ref} className="location-picker-map" />
+            <PlaceSearch
+                value={searchText}
+                onChange={setSearchText}
+                placeholder="Search for the area, e.g. Gachibowli…"
+                onSelect={(p) => {
+                    if (mapRef.current) mapRef.current.setView([p.lat, p.lng], 14);
+                }}
+            />
+            <div ref={ref} className="location-picker-map" style={{ marginTop: 10 }} />
             <p className="map-note">
                 {lat != null
                     ? 'Pin placed — tap elsewhere on the map or drag the pin to move it.'
-                    : 'Tap the map to drop a pin where your place is.'}{' '}
+                    : 'Search above to jump to the area, then tap the map to drop a pin.'}{' '}
                 Only an approximate location is shown publicly.
             </p>
         </>
