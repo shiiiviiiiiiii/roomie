@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import LocationPicker from '../components/LocationPicker';
 import { CITIES, BHK_OPTIONS, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, AMENITY_OPTIONS, inr, formatDate } from '../format';
 
 const STEPS = ['Basics', 'Rent & terms', 'Details', 'Photos', 'Review'];
@@ -18,6 +19,7 @@ export default function PostRoom() {
     rent: '', deposit: '', furnishing: 'furnished',
     tenant_preference: 'any', available_from: '',
     description: '', amenities: [], images: [],
+    lat: null, lng: null,
   });
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -26,17 +28,17 @@ export default function PostRoom() {
   }));
 
   const validStep = () => {
-    if (step === 0) return form.title.trim() && form.area.trim() && form.city;
+    if (step === 0) return form.title.trim() && form.area.trim() && form.city && form.lat != null && form.lng != null;
     if (step === 1) return Number(form.rent) > 0;
     if (step === 3) return form.images.length > 0;
     return true;
   };
 
   const stepError = () => {
+    if (step === 0) return 'Add a title, area, and drop a pin on the map so flatmates can find your locality.';
     if (step === 3 && form.images.length === 0) return 'Add at least one photo — listings without photos are not published.';
     return 'Please fill the required fields before continuing.';
   };
-
   const next = () => {
     if (!validStep()) { setError(stepError()); return; }
     setError('');
@@ -95,7 +97,14 @@ export default function PostRoom() {
                 <input className="input" placeholder="e.g. Koramangala 5th Block" value={form.area} onChange={(e) => set('area', e.target.value)} /></div>
             </div>
             <label className="label">Street address (optional — only approximate location is shown publicly)</label>
-            <input className="input" placeholder="Flat / building / street" value={form.address} onChange={(e) => set('address', e.target.value)} />
+            <input className="input" placeholder="Flat / building / street" value={form.address} onChange={(e) => set('address', e.target.value)} /><label className="label">Pin your location on the map *</label>
+            <LocationPicker
+              city={form.city}
+              lat={form.lat}
+              lng={form.lng}
+              onPick={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))}
+            />
+
             <label className="label">What are you offering? *</label>
             <div className="chip-select">
               {Object.entries(ROOM_TYPE_LABELS).map(([k, v]) => (
@@ -183,6 +192,7 @@ export default function PostRoom() {
             <h3 style={{ marginTop: 0 }}>{form.title || 'Untitled listing'}</h3>
             <table className="spec-table"><tbody>
               <tr><td>Location</td><td><b>{form.area}, {form.city}</b></td></tr>
+              <tr><td>Map pin</td><td><b>{form.lat != null ? 'Pinned ✓' : '—'}</b></td></tr>
               <tr><td>Rent</td><td><b>{form.rent ? inr(form.rent) : '—'}/month</b></td></tr>
               <tr><td>Deposit</td><td><b>{form.deposit ? inr(form.deposit) : '—'}</b></td></tr>
               <tr><td>Offering</td><td><b>{ROOM_TYPE_LABELS[form.room_type]} · {form.bhk}</b></td></tr>
