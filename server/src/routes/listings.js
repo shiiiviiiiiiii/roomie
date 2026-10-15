@@ -1,24 +1,11 @@
 const express = require('express');
 const store = require('../store');
-const { admin } = require('../firebase');
 const { authRequired } = require('../middleware/auth');
+const { optionalViewerUid } = require('../middleware/optionalAuth');
 const { notify } = require('../utils/notify');
 const { validate, idParam, z } = require('../middleware/validate');
 
 const router = express.Router();
-
-// Resolve the viewer's uid from an optional Bearer token (anonymous browse
-// stays token-free). Used only for the is_saved flag.
-async function viewerUid(req) {
-  const h = req.headers.authorization || '';
-  if (!h.startsWith('Bearer ')) return null;
-  try {
-    const decoded = await admin.auth().verifyIdToken(h.slice(7));
-    return decoded.uid;
-  } catch {
-    return null;
-  }
-}
 
 // GET /api/listings — browse with filters
 router.get('/', async (req, res, next) => {
@@ -29,7 +16,7 @@ router.get('/', async (req, res, next) => {
       sort = 'newest', limit = 24, offset = 0, mine,
     } = req.query;
 
-    const vid = await viewerUid(req);
+    const vid = await optionalViewerUid(req);
     const result = await store.queryListings({
       city, q, min_rent, max_rent, bhk, room_type, furnishing, tenant_preference,
       near_lat, near_lng, near_km,
@@ -51,7 +38,7 @@ router.get('/saved/mine', authRequired, async (req, res, next) => {
 // GET /api/listings/:id
 router.get('/:id', validate({ params: idParam }), async (req, res, next) => {
   try {
-    const vid = await viewerUid(req);
+    const vid = await optionalViewerUid(req);
     const listing = await store.getListing(req.params.id, vid);
     if (!listing || listing.status === 'removed') {
       return res.status(404).json({ error: 'Listing not found' });

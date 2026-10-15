@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
-import { CITIES, BHK_OPTIONS, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, AMENITY_OPTIONS, inr } from '../format';
+import { CITIES, BHK_OPTIONS, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, AMENITY_OPTIONS, inr, formatDate } from '../format';
 
 const STEPS = ['Basics', 'Rent & terms', 'Details', 'Photos', 'Review'];
 
@@ -188,7 +188,7 @@ export default function PostRoom() {
               <tr><td>Offering</td><td><b>{ROOM_TYPE_LABELS[form.room_type]} · {form.bhk}</b></td></tr>
               <tr><td>Furnishing</td><td><b>{FURNISHING_LABELS[form.furnishing]}</b></td></tr>
               <tr><td>Looking for</td><td><b>{TENANT_LABELS[form.tenant_preference]}</b></td></tr>
-              {form.available_from && <tr><td>Available from</td><td><b>{form.available_from}</b></td></tr>}
+              {form.available_from && <tr><td>Available from</td><td><b>{formatDate(form.available_from)}</b></td></tr>}
               <tr><td>Photos</td><td><b>{form.images.length}</b></td></tr>
               <tr><td>Amenities</td><td><b>{form.amenities.join(', ') || '—'}</b></td></tr>
             </tbody></table>

@@ -158,7 +158,7 @@ function Navbar() {
           {user ? (
             <>
               <Link to="/post" className="btn btn-sm hide-mobile">+ Post a room</Link>
-              <Link to="/profile" className="btn btn-ghost btn-sm hide-mobile">{user.name.split(' ')[0]}</Link>
+              <Link to="/profile" className="btn btn-ghost btn-sm hide-mobile">{(user.name || 'Profile').split(' ')[0]}</Link>
               <button className="btn btn-ghost btn-sm hide-mobile" onClick={async () => { await logout(); navigate('/'); }}>Log out</button>
             </>
           ) : (

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { timeAgo } from '../format';
@@ -10,21 +10,24 @@ export default function ChatThread() {
   const [messages, setMessages] = useState([]);
   const [otherProfile, setOtherProfile] = useState(null);
   const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const { user, loading: authLoading } = useAuth();
   const bottomRef = useRef(null);
 
-  const load = () => {
+  const load = useCallback(() => {
     api(`/api/conversations/${id}/messages`).then((d) => {
-      setConv(d.conversation || null); setMessages(d.messages || []);
+      setError(''); // clear any previous error on a successful load
+      setConv(d.conversation || null);
+      setMessages(d.messages || []);
     }).catch((e) => setError(e.message));
-  };
+  }, [id]);
 
   useEffect(() => {
     load();
     const t = setInterval(load, 8000); // light polling for new messages
     return () => clearInterval(t);
-  }, [id]);
+  }, [load]);
 
   useEffect(() => { bottomRef.current && bottomRef.current.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -43,11 +46,18 @@ export default function ChatThread() {
     e.preventDefault();
     const body = draft.trim();
     if (!body) return;
+    setSending(true);
     setDraft('');
     try {
       const { message } = await api(`/api/conversations/${id}/messages`, { method: 'POST', body: { body } });
       setMessages((ms) => [...ms, message]);
-    } catch (err) { alert(err.message); }
+    } catch (err) {
+      alert(err.message);
+      // Restore the draft so the user doesn't lose their message
+      setDraft(body);
+    } finally {
+      setSending(false);
+    }
   };
 
   if (authLoading) return <div className="container"><div className="empty">Loading…</div></div>;
@@ -107,8 +117,8 @@ export default function ChatThread() {
               <div ref={bottomRef} />
             </div>
             <form className="chat-input" onSubmit={send}>
-              <input className="input" placeholder="Write a message…" value={draft} onChange={(e) => setDraft(e.target.value)} />
-              <button className="btn btn-brand" type="submit">Send</button>
+              <input className="input" placeholder="Write a message…" value={draft} onChange={(e) => setDraft(e.target.value)} disabled={sending} />
+              <button className="btn btn-brand" type="submit" disabled={sending}>{sending ? '…' : 'Send'}</button>
             </form>
           </div>
         </div>

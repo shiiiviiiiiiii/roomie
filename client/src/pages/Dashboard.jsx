@@ -26,8 +26,10 @@ export default function Dashboard() {
 
   const del = async (id) => {
     if (!confirm('Delete this listing permanently?')) return;
-    await api(`/api/listings/${id}`, { method: 'DELETE' });
-    load();
+    try {
+      await api(`/api/listings/${id}`, { method: 'DELETE' });
+      load();
+    } catch (e) { alert(e.message); }
   };
 
   const setVisitStatus = async (id, status) => {

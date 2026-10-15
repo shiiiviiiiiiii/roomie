@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../api';
-import { inr, inrShort, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, timeAgo } from '../format';
+import { inr, inrShort, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, timeAgo, formatDate } from '../format';
 import MapView from '../components/MapView';
 import { useAuth } from '../App';
 
@@ -105,7 +105,7 @@ export default function ListingDetail() {
                 {l.bhk && <div className="fact"><span className="fact-k">Size</span><span className="fact-v">{l.bhk}</span></div>}
                 <div className="fact"><span className="fact-k">Furnishing</span><span className="fact-v">{FURNISHING_LABELS[l.furnishing]}</span></div>
                 <div className="fact"><span className="fact-k">Looking for</span><span className="fact-v">{TENANT_LABELS[l.tenant_preference]}</span></div>
-                {l.available_from && <div className="fact"><span className="fact-k">Available</span><span className="fact-v">{l.available_from}</span></div>}
+                {l.available_from && <div className="fact"><span className="fact-k">Available</span><span className="fact-v">{formatDate(l.available_from)}</span></div>}
                 {l.deposit ? <div className="fact"><span className="fact-k">Deposit</span><span className="fact-v">{inr(l.deposit)}</span></div> : null}
               </div>
             </div>
@@ -116,7 +116,7 @@ export default function ListingDetail() {
                 <li>📍 Approximate location is shown — the exact address is shared by the owner over chat.</li>
                 <li>💬 Chat first, visit second. Genuine owners expect it.</li>
                 <li>🚫 Never pay token money or deposits before a visit.</li>
-                {l.available_from && <li>📅 Available from {l.available_from}.</li>}
+                {l.available_from && <li>📅 Available from {formatDate(l.available_from)}.</li>}
               </ul>
             </div>
           </div>

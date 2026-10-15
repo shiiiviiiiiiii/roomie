@@ -56,3 +56,15 @@ export function timeAgo(iso) {
   if (days < 30) return `${days}d ago`;
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+
+// Formats a YYYY-MM-DD or ISO date string as a human-readable date,
+// e.g. "1 Nov 2026". Returns the original string if it can't be parsed.
+export function formatDate(str) {
+  if (!str) return '';
+  // Treat YYYY-MM-DD strings as local dates (no UTC shift)
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(str)
+    ? new Date(`${str}T00:00:00`)
+    : new Date(str);
+  if (Number.isNaN(d.getTime())) return str;
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}

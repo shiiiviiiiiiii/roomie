@@ -22,7 +22,7 @@ export default function Browse() {
   const [listings, setListings] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [nearText, setNearText] = useState('');
+  const [nearText, setNearText] = useState(params.get('near_label') || '');
   const [nearLabel, setNearLabel] = useState(params.get('near_label') || '');
   const [geoError, setGeoError] = useState('');
   const [mobileView, setMobileView] = useState('list'); // 'list' | 'map'
@@ -167,6 +167,12 @@ export default function Browse() {
           <select value={params.get('furnishing') || ''} onChange={(e) => set('furnishing', e.target.value)} aria-label="Furnishing">
             <option value="">Furnishing</option>
             {Object.entries(FURNISHING_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+        <label className={`fpill ${params.get('tenant_preference') ? 'on' : ''}`}>
+          <select value={params.get('tenant_preference') || ''} onChange={(e) => set('tenant_preference', e.target.value)} aria-label="Looking for">
+            <option value="">Looking for</option>
+            {Object.entries(TENANT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
         <label className={`fpill ${f.sort !== 'newest' ? 'on' : ''}`}>

@@ -128,7 +128,7 @@ async function getUsersByIds(uids) {
 // listings
 // ---------------------------------------------------------------------------
 
-function listingShape(l, { owner, isSaved } = {}) {
+function listingShape(l, { owner, isSaved, includeAddress = false } = {}) {
   if (!l) return null;
   return {
     id: l.id,
@@ -137,7 +137,9 @@ function listingShape(l, { owner, isSaved } = {}) {
     description: l.description ?? null,
     city: l.city ?? null,
     area: l.area ?? null,
-    address: l.address ?? null,
+    // Exact address is private — only returned to the listing owner.
+    // Other users must ask via in-app chat.
+    ...(includeAddress ? { address: l.address ?? null } : {}),
     lat: l.lat ?? null,
     lng: l.lng ?? null,
     rent: l.rent ?? null,
@@ -166,7 +168,12 @@ async function hydrateListings(docs, viewerUid) {
     savedSet = new Set(snap.docs.map((d) => d.data().listing_id));
   }
   return listings.map((l) =>
-    listingShape(l, { owner: owners.get(String(l.user_id)), isSaved: savedSet.has(l.id) })
+    listingShape(l, {
+      owner: owners.get(String(l.user_id)),
+      isSaved: savedSet.has(l.id),
+      // Only the owner of a listing receives their own exact address.
+      includeAddress: viewerUid != null && String(l.user_id) === String(viewerUid),
+    })
   );
 }
 
@@ -401,7 +408,12 @@ async function listConversations(uid) {
   const convs = [...snapA.docs, ...snapB.docs]
     .map(docShape)
     .filter(Boolean)
-    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    .sort((a, b) => {
+      // Sort by most-recent activity: last_message_at if available, else created_at
+      const ta = a.last_message_at ?? a.created_at;
+      const tb = b.last_message_at ?? b.created_at;
+      return String(tb).localeCompare(String(ta));
+    });
   return Promise.all(convs.map(conversationView));
 }
 
@@ -596,7 +608,9 @@ async function listNotifications(uid) {
     .filter(Boolean)
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
     .slice(0, 50);
-  const unread = snap.docs.filter((d) => !d.data().is_read).length;
+  // Count unread from the full snap (before slicing) using integer comparison
+  // (is_read is stored as 0 or 1, not a boolean)
+  const unread = snap.docs.filter((d) => d.data().is_read === 0).length;
   return { notifications: rows, unread_count: unread };
 }
 
