@@ -1,16 +1,15 @@
-// Image uploads → Firebase Cloud Storage.
+// Image uploads → Cloudinary (free tier, no credit card required).
 //
 // multer keeps files in memory (never touches local disk); each buffer is
-// magic-byte sniffed (mimetype alone is spoofable) and then written to the
-// bucket. Returned URLs are Firebase-style download URLs
-// (…?alt=media&token=…): the unguessable token in the object's metadata
-// grants read access, so the same URL shape works against the Storage
-// emulator and in production — no per-object IAM changes needed, and the
-// locked-down storage.rules stay as they are.
+// magic-byte sniffed (mimetype alone is spoofable) and then streamed to
+// Cloudinary. Returned URLs are the CDN `secure_url`s.
+//
+// Config: CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
+// Get it from cloudinary.com → Dashboard → API Keys. Set it as an env var
+// (Netlify → Environment variables); the SDK reads it automatically.
 const express = require('express');
 const multer = require('multer');
-const { randomUUID } = require('crypto');
-const { bucket } = require('../firebase');
+const cloudinary = require('cloudinary').v2;
 const { authRequired } = require('../middleware/auth');
 
 const router = express.Router();
@@ -35,36 +34,35 @@ function sniffImage(buffer) {
   return null;
 }
 
-function downloadUrl(file, token) {
-  const path = `/v0/b/${bucket.name}/o/${encodeURIComponent(file.name)}?alt=media&token=${token}`;
-  const emuHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST;
-  // Production: the firebasestorage.googleapis.com download endpoint.
-  // Emulator: the same path shape served locally.
-  return emuHost ? `http://${emuHost}${path}` : `https://firebasestorage.googleapis.com${path}`;
+function uploadBuffer(buffer) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: 'roomie', resource_type: 'image' },
+      (err, result) => (err ? reject(err) : resolve(result))
+    );
+    stream.end(buffer);
+  });
 }
 
 // POST /api/upload — authenticated image upload, returns download URLs
 router.post('/', authRequired, (req, res) => {
   upload.array('images', 8)(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
+    if (!process.env.CLOUDINARY_URL) {
+      return res.status(500).json({ error: 'Photo uploads are not configured yet' });
+    }
     try {
-      const urls = [];
-      for (const f of req.files || []) {
-        const kind = sniffImage(f.buffer);
-        if (!kind) {
+      const files = req.files || [];
+      for (const f of files) {
+        if (!sniffImage(f.buffer)) {
           return res.status(400).json({ error: `File "${f.originalname}" is not a valid image` });
         }
-        const token = randomUUID();
-        const name = `uploads/${Date.now()}-${Math.round(Math.random() * 1e9)}.${kind}`;
-        const file = bucket.file(name);
-        await file.save(f.buffer, {
-          metadata: {
-            contentType: f.mimetype,
-            metadata: { firebaseStorageDownloadTokens: token },
-          },
-        });
-        urls.push(downloadUrl(file, token));
       }
+      // Upload in parallel — keeps serverless invocations well under the
+      // platform timeout even with several photos.
+      const urls = await Promise.all(
+        files.map((f) => uploadBuffer(f.buffer).then((r) => r.secure_url))
+      );
       res.status(201).json({ urls });
     } catch (e) {
       console.error('upload failed:', e.message);

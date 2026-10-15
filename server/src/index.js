@@ -55,6 +55,7 @@ app.use(helmet({
         'https://storage.googleapis.com', 'https://firebasestorage.googleapis.com',
         // Seeded demo listings use picsum.photos placeholder images.
         'https://picsum.photos',
+        'https://res.cloudinary.com',
         'http://127.0.0.1:9199',
       ],
       connectSrc: [
