@@ -2,7 +2,7 @@
 # as a serverless function (netlify/functions/api.js) for /api/* routes.
 # Single site, single URL — no separate backend host, no CORS setup.
 [build]
-  command = "npm install --prefix client && npm run build --prefix client"
+  command = "npm install --include=dev --prefix client && npm run build --prefix client"
   publish = "client/dist"
   functions = "netlify/functions"
 
