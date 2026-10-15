@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.gitignore
+*.log
+server/data
+server/uploads
+client/dist
+.env

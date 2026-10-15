@@ -1,0 +1,23 @@
+services:
+  roomie:
+    build: .
+    image: roomie:latest
+    container_name: roomie
+    restart: unless-stopped
+    ports:
+      - "${PORT:-4000}:4000"
+    env_file:
+      - .env
+    environment:
+      PORT: 4000
+      # Firebase Admin credentials — provide ONE of:
+      #   a) FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY
+      #      (set them in .env), or
+      #   b) mount a service-account JSON read-only and point
+      #      GOOGLE_APPLICATION_CREDENTIALS at it (uncomment below):
+      # GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/roomie-service-account.json
+    # volumes:
+    #   # b) service-account key file (never commit this file — gitignored):
+    #   - ./roomie-service-account.json:/run/secrets/roomie-service-account.json:ro
+    # NOTE: no named volumes anymore — listings, users and photos live in
+    # Firebase (Firestore + Cloud Storage), not on local disk.

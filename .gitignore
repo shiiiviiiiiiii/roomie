@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# Firebase Admin service-account keys — NEVER commit these.
+# (GOOGLE_APPLICATION_CREDENTIALS may point at a file like one of these.)
+*service-account*.json
+serviceAccountKey.json
+
+# Firebase emulator / CLI artefacts
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+database-debug.log
+
+# Local JRE for the Firebase Emulator Suite (verification tooling only)
+.jre/
+*-firebase-adminsdk-*.json
