@@ -25,11 +25,12 @@ const updateMeSchema = z.object({
   occupation: z.string().trim().max(100).nullable().optional(),
   bio: z.string().trim().max(2000).nullable().optional(),
   avatar_url: z.string().trim().max(500).nullable().optional(),
+  profile_completed: z.boolean().optional(),
 }).refine((o) => Object.keys(o).length > 0, { message: 'At least one field must be provided' });
 
 async function updateMe(req, res) {
   const patch = {};
-  for (const f of ['name', 'phone', 'gender', 'occupation', 'bio', 'avatar_url']) {
+  for (const f of ['name', 'phone', 'gender', 'occupation', 'bio', 'avatar_url', 'profile_completed']) {
     if (req.body[f] !== undefined) patch[f] = req.body[f];
   }
   const user = await store.updateUser(req.user.id, patch);

@@ -46,7 +46,7 @@ export default function Admin() {
       )}
       {reports.length === 0
         ? <div className="empty"><h3>No open reports</h3><p>Nothing needs your attention right now.</p></div>
-        : <table className="table">
+        : <div className="table-wrap"><table className="table">
             <thead><tr><th>Listing</th><th>Reason</th><th>Reporter</th><th>When</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {reports.map((r) => (
@@ -68,7 +68,8 @@ export default function Admin() {
                 </tr>
               ))}
             </tbody>
-          </table>}
+          </table>
+          </div>}
     </div>
   );
 }

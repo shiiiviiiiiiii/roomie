@@ -25,12 +25,14 @@ router.get('/', async (req, res, next) => {
   try {
     const {
       city, q, min_rent, max_rent, bhk, room_type, furnishing, tenant_preference,
+      near_lat, near_lng, near_km,
       sort = 'newest', limit = 24, offset = 0, mine,
     } = req.query;
 
     const vid = await viewerUid(req);
     const result = await store.queryListings({
       city, q, min_rent, max_rent, bhk, room_type, furnishing, tenant_preference,
+      near_lat, near_lng, near_km,
       mineUid: mine && vid ? vid : null,
       sort, limit, offset, viewerUid: vid,
     });
@@ -74,7 +76,7 @@ const listingFields = {
   furnishing: z.string().trim().min(1).max(50),
   tenant_preference: z.string().trim().max(50).optional(),
   available_from: z.string().trim().max(30).nullable().optional(),
-  images: z.array(urlString).max(8).optional(),
+  images: z.array(urlString).min(1, 'At least one photo is required').max(8),
   amenities: z.array(z.string().trim().max(60)).max(30).optional(),
 };
 

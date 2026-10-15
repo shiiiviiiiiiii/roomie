@@ -75,7 +75,7 @@ export default function Dashboard() {
       {tab === 'visits' && (
         visits.length === 0
           ? <div className="empty"><h3>No visits scheduled</h3><p>Request a visit from any listing page.</p></div>
-          : <table className="table">
+          : <div className="table-wrap"><table className="table">
               <thead><tr><th>Listing</th><th>When</th><th>With</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {visits.map((v) => {
@@ -102,6 +102,7 @@ export default function Dashboard() {
                 })}
               </tbody>
             </table>
+            </div>
       )}
     </div>
   );

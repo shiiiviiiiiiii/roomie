@@ -10,16 +10,20 @@ export default function Login() {
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
+  const afterAuth = (profile) => {
+    navigate(profile && profile.profile_completed === false ? '/welcome' : '/');
+  };
+
   const submit = async (e) => {
     e.preventDefault(); setError(''); setBusy(true);
-    try { await login(email, password); navigate('/'); }
+    try { afterAuth(await login(email, password)); }
     catch (err) { setError(err.message); }
     finally { setBusy(false); }
   };
 
   const google = async () => {
     setError(''); setBusy(true);
-    try { await loginWithGoogle(); navigate('/'); }
+    try { afterAuth(await loginWithGoogle()); }
     catch (err) { setError(err.message); }
     finally { setBusy(false); }
   };

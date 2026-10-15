@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useNavigate } from 'react-router-dom';
+import { createContext, useCallback, useContext, useEffect, useState, Component } from 'react';
+import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signInWithPopup, updateProfile, signOut,
@@ -16,6 +16,8 @@ import ChatThread from './pages/ChatThread';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Profile from './pages/Profile';
+import PublicProfile from './pages/PublicProfile';
+import Onboarding from './pages/Onboarding';
 import Notifications from './pages/Notifications';
 import Admin from './pages/Admin';
 import Terms from './pages/Terms';
@@ -23,6 +25,7 @@ import Privacy from './pages/Privacy';
 import Cookies from './pages/Cookies';
 import ConsentBanner from './components/ConsentBanner';
 import { openCookieSettings } from './consent';
+import { COFFEE_URL, COFFEE_LABEL } from './config';
 import './styles.css';
 
 const AuthCtx = createContext(null);
@@ -69,7 +72,7 @@ function AuthProvider({ children }) {
     if (!auth) throw new Error('Sign-in is not configured yet');
     try {
       await signInWithEmailAndPassword(auth, String(email).trim(), password);
-      await refreshProfile();
+      return await refreshProfile();
     } catch (e) { throw new Error(friendlyAuthError(e)); }
   };
 
@@ -94,6 +97,7 @@ function AuthProvider({ children }) {
         },
       });
       setUser(profile);
+      return profile;
     } catch (e) { throw new Error(friendlyAuthError(e)); }
   };
 
@@ -101,7 +105,7 @@ function AuthProvider({ children }) {
     if (!auth) throw new Error('Google sign-in is not configured yet');
     try {
       await signInWithPopup(auth, googleProvider);
-      await refreshProfile();
+      return await refreshProfile();
     } catch (e) { throw new Error(friendlyAuthError(e)); }
   };
 
@@ -121,6 +125,7 @@ function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [unread, setUnread] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!user) { setUnread(0); return; }
@@ -129,6 +134,8 @@ function Navbar() {
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
   }, [user]);
+
+  const go = (to) => { setMenuOpen(false); navigate(to); };
 
   return (
     <nav className="navbar">
@@ -150,17 +157,32 @@ function Navbar() {
         <div className="nav-right">
           {user ? (
             <>
-              <Link to="/post" className="btn btn-sm">+ Post a room</Link>
-              <Link to="/profile" className="btn btn-ghost btn-sm">{user.name.split(' ')[0]}</Link>
-              <button className="btn btn-ghost btn-sm" onClick={async () => { await logout(); navigate('/'); }}>Log out</button>
+              <Link to="/post" className="btn btn-sm hide-mobile">+ Post a room</Link>
+              <Link to="/profile" className="btn btn-ghost btn-sm hide-mobile">{user.name.split(' ')[0]}</Link>
+              <button className="btn btn-ghost btn-sm hide-mobile" onClick={async () => { await logout(); navigate('/'); }}>Log out</button>
             </>
           ) : (
             <>
-              <Link to="/login" className="btn btn-ghost btn-sm">Log in</Link>
-              <Link to="/signup" className="btn btn-sm">Sign up</Link>
+              <Link to="/login" className="btn btn-ghost btn-sm hide-mobile">Log in</Link>
+              <Link to="/signup" className="btn btn-sm hide-mobile">Sign up</Link>
             </>
           )}
         </div>
+        <button className="nav-toggle" type="button" aria-label="Menu" onClick={() => setMenuOpen((o) => !o)}>
+          {menuOpen ? '✕' : '☰'}
+        </button>
+      </div>
+      <div className={`nav-menu-mobile ${menuOpen ? 'open' : ''}`}>
+        <Link to="/search" onClick={() => setMenuOpen(false)}>Find a room</Link>
+        {user && <Link to="/dashboard" onClick={() => setMenuOpen(false)}>Dashboard</Link>}
+        {user && <Link to="/chats" onClick={() => setMenuOpen(false)}>Chats</Link>}
+        {user && <Link to="/notifications" onClick={() => setMenuOpen(false)}>Alerts{unread > 0 ? ` (${unread})` : ''}</Link>}
+        {user && <Link to="/post" onClick={() => setMenuOpen(false)}>+ Post a room</Link>}
+        {user && <Link to="/profile" onClick={() => setMenuOpen(false)}>Profile</Link>}
+        {user && user.role === 'admin' && <Link to="/admin" onClick={() => setMenuOpen(false)}>Moderation</Link>}
+        {user
+          ? <a href="#" onClick={(e) => { e.preventDefault(); logout().then(() => go('/')); }}>Log out</a>
+          : <><Link to="/login" onClick={() => setMenuOpen(false)}>Log in</Link><Link to="/signup" onClick={() => setMenuOpen(false)}>Sign up</Link></>}
       </div>
     </nav>
   );
@@ -173,11 +195,49 @@ function RequireAuth({ children }) {
   return children;
 }
 
-export default function App() {
+// Catches render crashes anywhere below and offers a retry instead of a
+// blank page. Shows the technical error in a collapsed panel so it can be
+// reported, and resets itself whenever the route changes.
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null, info: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) {
+    console.error('[roomie] render crash:', error, info);
+    this.setState({ info });
+  }
+  componentDidUpdate(prevProps) {
+    if (this.props.routeKey !== prevProps.routeKey && this.state.error) {
+      this.setState({ error: null, info: null });
+    }
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const msg = String((this.state.error && this.state.error.message) || this.state.error);
+    const stack = this.state.info && this.state.info.componentStack;
+    return (
+      <div className="container">
+        <div className="empty">
+          <h3>Something went wrong</h3>
+          <p>The page hit an unexpected error. Your data is safe.</p>
+          <button className="btn" type="button" onClick={() => { this.setState({ error: null, info: null }); window.location.reload(); }}>Reload the page</button>
+          <details style={{ marginTop: 18, textAlign: 'left', fontSize: 12.5, color: 'var(--muted)' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Technical details (for bug reports)</summary>
+            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'var(--bg-deep)', padding: 12, borderRadius: 8, marginTop: 8 }}>{msg}{stack ? `\n${stack}` : ''}</pre>
+          </details>
+        </div>
+      </div>
+    );
+  }
+}
+
+// Inner shell (inside the Router) so we can key the error boundary on the
+// current route — a crash on one page clears itself when you navigate away.
+function Shell() {
+  const location = useLocation();
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Navbar />
+    <>
+      <Navbar />
+      <ErrorBoundary routeKey={location.pathname}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<Browse />} />
@@ -190,24 +250,37 @@ export default function App() {
           <Route path="/chats/:id" element={<RequireAuth><ChatThread /></RequireAuth>} />
           <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+          <Route path="/u/:id" element={<PublicProfile />} />
+          <Route path="/welcome" element={<RequireAuth><Onboarding /></RequireAuth>} />
           <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/cookies" element={<Cookies />} />
         </Routes>
-        <footer className="footer">
-          <div className="container">
-            <span>Roomie — find rooms &amp; flatmates across India.</span>
-            <span className="footer-links">
-              <Link to="/terms">Terms</Link>
-              <Link to="/privacy">Privacy</Link>
-              <Link to="/cookies">Cookies</Link>
-              <button type="button" className="link-btn" onClick={openCookieSettings}>Cookie settings</button>
-            </span>
-            <span>Self-hosted build · demo data is fictional</span>
-          </div>
-        </footer>
-        <ConsentBanner />
+      </ErrorBoundary>
+      <footer className="footer">
+        <div className="container">
+          <span className="footer-brand">Roomie<span>.</span></span>
+          <span className="footer-links">
+            <Link to="/terms">Terms</Link>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/cookies">Cookies</Link>
+            <button type="button" className="link-btn" onClick={openCookieSettings}>Cookie settings</button>
+            {COFFEE_URL && <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700, color: 'var(--brand-dark)' }}>☕ {COFFEE_LABEL}</a>}
+          </span>
+          <span>Find rooms & flatmates across India.</span>
+        </div>
+      </footer>
+      <ConsentBanner />
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Shell />
       </AuthProvider>
     </BrowserRouter>
   );

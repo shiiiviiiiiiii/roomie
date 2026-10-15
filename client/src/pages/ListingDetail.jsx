@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../api';
-import { inr, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, timeAgo } from '../format';
+import { inr, inrShort, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, timeAgo } from '../format';
 import MapView from '../components/MapView';
 import { useAuth } from '../App';
 
@@ -72,47 +72,73 @@ export default function ListingDetail() {
 
   return (
     <div className="container">
+      <div className="detail-hero">
+        {l.images && l.images.length > 0 ? (
+          <>
+            <img className="gallery-main" src={l.images[photo]} alt={l.title} />
+            {l.images.length > 1 && (
+              <div className="gallery-thumbs">
+                {l.images.map((src, i) => (
+                  <img key={i} src={src} alt="" className={i === photo ? 'active' : ''} onClick={() => setPhoto(i)} />
+                ))}
+              </div>
+            )}
+          </>
+        ) : <div className="gallery-main" />}
+      </div>
+
       <div className="detail">
         <div>
-          {l.images && l.images.length > 0 ? (
-            <>
-              <img className="gallery-main" src={l.images[photo]} alt={l.title} />
-              {l.images.length > 1 && (
-                <div className="gallery-thumbs">
-                  {l.images.map((src, i) => (
-                    <img key={i} src={src} alt="" className={i === photo ? 'active' : ''} onClick={() => setPhoto(i)} />
-                  ))}
-                </div>
-              )}
-            </>
-          ) : <div className="gallery-main" />}
+          <span className="eyebrow">{l.area}, {l.city}</span>
+          <h1 className="page-title" style={{ marginTop: 0 }}>{l.title}</h1>
+          <p className="page-sub">
+            {ROOM_TYPE_LABELS[l.room_type]}{l.bhk ? ` · ${l.bhk}` : ''} · {FURNISHING_LABELS[l.furnishing]} · listed {timeAgo(l.created_at)}
+          </p>
 
-          <h1 className="page-title">{l.title}</h1>
-          <p className="page-sub">{l.area}, {l.city} · listed {timeAgo(l.created_at)}</p>
-          {l.description && <p style={{ lineHeight: 1.65 }}>{l.description}</p>}
+          {l.description && <p style={{ lineHeight: 1.7, fontSize: 15.5 }}>{l.description}</p>}
+
+          <div className="info-cards">
+            <div className="frost-card info-card">
+              <h3>Why this home</h3>
+              <div className="fact-grid">
+                <div className="fact"><span className="fact-k">Offering</span><span className="fact-v">{ROOM_TYPE_LABELS[l.room_type]}</span></div>
+                {l.bhk && <div className="fact"><span className="fact-k">Size</span><span className="fact-v">{l.bhk}</span></div>}
+                <div className="fact"><span className="fact-k">Furnishing</span><span className="fact-v">{FURNISHING_LABELS[l.furnishing]}</span></div>
+                <div className="fact"><span className="fact-k">Looking for</span><span className="fact-v">{TENANT_LABELS[l.tenant_preference]}</span></div>
+                {l.available_from && <div className="fact"><span className="fact-k">Available</span><span className="fact-v">{l.available_from}</span></div>}
+                {l.deposit ? <div className="fact"><span className="fact-k">Deposit</span><span className="fact-v">{inr(l.deposit)}</span></div> : null}
+              </div>
+            </div>
+
+            <div className="frost-card info-card">
+              <h3>Things to know</h3>
+              <ul className="know-list">
+                <li>📍 Approximate location is shown — the exact address is shared by the owner over chat.</li>
+                <li>💬 Chat first, visit second. Genuine owners expect it.</li>
+                <li>🚫 Never pay token money or deposits before a visit.</li>
+                {l.available_from && <li>📅 Available from {l.available_from}.</li>}
+              </ul>
+            </div>
+          </div>
 
           {l.amenities && l.amenities.length > 0 && (
-            <>
+            <div className="detail-card" style={{ marginTop: 22 }}>
               <h3>Amenities</h3>
               <div className="amenity-chips">{l.amenities.map((a) => <span key={a} className="amenity-chip">{a}</span>)}</div>
-            </>
+            </div>
           )}
 
-          <h3>Location</h3>
-          <div className="map-wrap"><MapView lat={l.lat} lng={l.lng} label={`${l.area}, ${l.city}`} /></div>
+          <div className="frost-card" style={{ marginTop: 22 }}>
+            <h3 style={{ marginTop: 0 }}>Where you'll be</h3>
+            <p className="card-meta" style={{ marginTop: 0 }}>{l.area}, {l.city}</p>
+            <div className="map-wrap"><MapView lat={l.lat} lng={l.lng} label={`${l.area}, ${l.city}`} /></div>
+          </div>
         </div>
 
         <div>
-          <div className="detail-card">
-            <div className="detail-price">{inr(l.rent)}<small>/month</small></div>
-            {l.deposit ? <div className="card-meta">Deposit: {inr(l.deposit)}</div> : null}
-            <table className="spec-table"><tbody>
-              <tr><td>Room type</td><td><b>{ROOM_TYPE_LABELS[l.room_type]}</b></td></tr>
-              {l.bhk && <tr><td>Size</td><td><b>{l.bhk}</b></td></tr>}
-              <tr><td>Furnishing</td><td><b>{FURNISHING_LABELS[l.furnishing]}</b></td></tr>
-              <tr><td>Looking for</td><td><b>{TENANT_LABELS[l.tenant_preference]}</b></td></tr>
-              {l.available_from && <tr><td>Available from</td><td><b>{l.available_from}</b></td></tr>}
-            </tbody></table>
+          <div className="frost-card">
+            <div className="detail-price">{inrShort(l.rent)}<small>/month</small></div>
+            {l.deposit ? <div className="card-meta" style={{ marginTop: 2 }}>+ {inr(l.deposit)} deposit</div> : null}
 
             <div className="owner-box">
               <div className="avatar">{(l.owner_name || '?')[0].toUpperCase()}</div>
@@ -124,7 +150,7 @@ export default function ListingDetail() {
 
             {!isOwner && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button className="btn" onClick={startChat}>Chat with owner</button>
+                <button className="btn btn-brand" style={{ flex: 1 }} onClick={startChat}>Chat with owner</button>
                 <button className="btn btn-outline" onClick={toggleSave}>{l.is_saved ? '♥ Saved' : '♡ Save'}</button>
               </div>
             )}
@@ -133,14 +159,14 @@ export default function ListingDetail() {
 
             {!isOwner && (
               <>
-                <h4 style={{ margin: '20px 0 6px' }}>Request a visit</h4>
+                <h4 className="serif" style={{ margin: '22px 0 4px', fontSize: 18 }}>Request a visit</h4>
                 <label className="label">Preferred date & time</label>
                 <input className="input" type="datetime-local" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
                 <label className="label">Note for the owner (optional)</label>
                 <input className="input" placeholder="e.g. weekday evenings work best" value={visitNote} onChange={(e) => setVisitNote(e.target.value)} />
-                <button className="btn btn-outline" style={{ marginTop: 10, width: '100%' }} onClick={requestVisit}>Request visit</button>
+                <button className="btn btn-outline" style={{ marginTop: 12, width: '100%' }} onClick={requestVisit}>Request visit</button>
 
-                <button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={() => setShowReport(!showReport)}>
+                <button className="btn btn-ghost btn-sm" style={{ marginTop: 14 }} onClick={() => setShowReport(!showReport)}>
                   Report this listing
                 </button>
                 {showReport && (

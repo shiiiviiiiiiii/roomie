@@ -11,16 +11,20 @@ export default function Signup() {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  const afterAuth = (profile) => {
+    navigate(profile && profile.profile_completed === false ? '/welcome' : '/');
+  };
+
   const submit = async (e) => {
     e.preventDefault(); setError(''); setBusy(true);
-    try { await signup(form); navigate('/'); }
+    try { afterAuth(await signup(form)); }
     catch (err) { setError(err.message); }
     finally { setBusy(false); }
   };
 
   const google = async () => {
     setError(''); setBusy(true);
-    try { await loginWithGoogle(); navigate('/'); }
+    try { afterAuth(await loginWithGoogle()); }
     catch (err) { setError(err.message); }
     finally { setBusy(false); }
   };

@@ -48,6 +48,7 @@ function publicUser(u) {
     occupation: u.occupation ?? null,
     bio: u.bio ?? null,
     avatar_url: u.avatar_url ?? null,
+    profile_completed: u.profile_completed ?? false,
     created_at: u.created_at ?? null,
   };
 }
@@ -72,6 +73,7 @@ async function provisionUser(uid, { email, name, role } = {}) {
     occupation: null,
     bio: null,
     avatar_url: null,
+    profile_completed: false,
     created_at: nowIso(),
   };
   await ref.set(data);
@@ -216,6 +218,7 @@ async function deleteListing(id) {
 // no composite indexes are ever needed.
 async function queryListings({
   city, q, min_rent, max_rent, bhk, room_type, furnishing, tenant_preference,
+  near_lat, near_lng, near_km,
   mineUid, sort = 'newest', limit = 24, offset = 0, viewerUid,
 } = {}) {
   let query = db.collection('listings').where('status', '==', 'active');
@@ -239,9 +242,30 @@ async function queryListings({
     );
   }
 
+  // Proximity filter: homes within near_km of (near_lat, near_lng), nearest first.
+  const nLat = Number(near_lat);
+  const nLng = Number(near_lng);
+  if (Number.isFinite(nLat) && Number.isFinite(nLng)) {
+    const km = Math.min(Math.max(Number(near_km) || 8, 1), 100);
+    const toRad = (d) => (d * Math.PI) / 180;
+    const distKm = (a, b, c, d) => {
+      const s = Math.sin(toRad(c - a) / 2) ** 2
+        + Math.cos(toRad(a)) * Math.cos(toRad(c)) * Math.sin(toRad(d - b) / 2) ** 2;
+      return 6371 * 2 * Math.asin(Math.sqrt(s));
+    };
+    rows = rows
+      .map((l) => ({ l, d: l.lat != null && l.lng != null ? distKm(nLat, nLng, Number(l.lat), Number(l.lng)) : Infinity }))
+      .filter((r) => r.d <= km)
+      .sort((x, y) => x.d - y.d)
+      .map((r) => r.l);
+  }
+
+  const nearMode = Number.isFinite(nLat) && Number.isFinite(nLng);
+
   if (sort === 'price_asc') rows.sort((a, b) => Number(a.rent) - Number(b.rent));
   else if (sort === 'price_desc') rows.sort((a, b) => Number(b.rent) - Number(a.rent));
-  else rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  else if (!nearMode) rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  // in nearMode with default sort, rows are already nearest-first from above
 
   const total = rows.length;
   const page = rows.slice(Number(offset) || 0, (Number(offset) || 0) + (Number(limit) || 24));
@@ -596,9 +620,30 @@ async function markAllNotificationsRead(uid) {
   await batch.commit();
 }
 
+// Public profile: safe-to-share fields plus the user's active listings.
+// Email/phone stay private — contact happens through in-app chat.
+async function getPublicProfile(uid, viewerUid) {
+  const u = await getUser(uid);
+  if (!u) return null;
+  const { listings } = await queryListings({ mineUid: String(uid), limit: 12, viewerUid });
+  return {
+    user: {
+      id: u.id,
+      name: u.name ?? 'Roomie user',
+      occupation: u.occupation ?? null,
+      bio: u.bio ?? null,
+      avatar_url: u.avatar_url ?? null,
+      created_at: u.created_at ?? null,
+    },
+    listings,
+    listing_count: listings.length,
+  };
+}
+
 module.exports = {
   publicUser,
   getUser,
+  getPublicProfile,
   provisionUser,
   upsertUser,
   updateUser,

@@ -111,6 +111,7 @@ app.use('/api/auth', authLimiter);
 
 // API routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/listings', require('./routes/listings'));
 app.use('/api/conversations', require('./routes/conversations'));
 app.use('/api/visits', require('./routes/visits'));

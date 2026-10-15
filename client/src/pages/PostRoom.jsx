@@ -28,11 +28,17 @@ export default function PostRoom() {
   const validStep = () => {
     if (step === 0) return form.title.trim() && form.area.trim() && form.city;
     if (step === 1) return Number(form.rent) > 0;
+    if (step === 3) return form.images.length > 0;
     return true;
   };
 
+  const stepError = () => {
+    if (step === 3 && form.images.length === 0) return 'Add at least one photo — listings without photos are not published.';
+    return 'Please fill the required fields before continuing.';
+  };
+
   const next = () => {
-    if (!validStep()) { setError('Please fill the required fields before continuing.'); return; }
+    if (!validStep()) { setError(stepError()); return; }
     setError('');
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
@@ -50,6 +56,7 @@ export default function PostRoom() {
   };
 
   const publish = async () => {
+    if (form.images.length === 0) { setError('Add at least one photo — listings without photos are not published.'); setStep(3); return; }
     setSaving(true); setError('');
     try {
       const { listing } = await api('/api/listings', {
@@ -61,8 +68,9 @@ export default function PostRoom() {
   };
 
   return (
-    <div className="container" style={{ maxWidth: 760 }}>
-      <h1 className="page-title">Post a room</h1>
+    <div className="container" style={{ maxWidth: 780 }}>
+      <span className="eyebrow" style={{ marginTop: 26 }}>List your space</span>
+      <h1 className="page-title" style={{ marginTop: 0 }}>Post a room</h1>
       <p className="page-sub">It takes about two minutes. Your listing goes live immediately.</p>
 
       <div className="steps">
@@ -143,13 +151,30 @@ export default function PostRoom() {
 
         {step === 3 && (
           <>
-            <label className="label">Photos (up to 8)</label>
-            <input className="input" type="file" accept="image/*" multiple onChange={(e) => uploadPhotos(e.target.files)} />
+            <label className="label">Photos * <span style={{ fontWeight: 400 }}>(at least one required — up to 8)</span></label>
+            <label className="photo-drop">
+              <div style={{ fontSize: 30, marginBottom: 6 }}>📸</div>
+              <div style={{ fontWeight: 700 }}>Tap to add photos</div>
+              <div className="card-meta" style={{ marginTop: 4 }}>Listings with photos get far more responses.</div>
+              <input
+                type="file" accept="image/*" multiple hidden
+                onChange={(e) => { uploadPhotos(e.target.files); e.target.value = ''; }}
+              />
+            </label>
             {uploading && <p className="card-meta">Uploading…</p>}
-            <div className="gallery-thumbs" style={{ marginTop: 12, flexWrap: 'wrap' }}>
-              {form.images.map((src, i) => <img key={i} src={src} alt="" style={{ width: 110, height: 80 }} />)}
+            <div className="photo-thumbs">
+              {form.images.map((src, i) => (
+                <div className="photo-thumb" key={i}>
+                  <img src={src} alt={`Listing photo ${i + 1}`} />
+                  <button type="button" aria-label="Remove photo" onClick={() => set('images', form.images.filter((_, j) => j !== i))}>✕</button>
+                </div>
+              ))}
             </div>
-            {form.images.length === 0 && <p className="card-meta">Listings with photos get far more responses. You can skip and add them later.</p>}
+            {form.images.length === 0 && !uploading && (
+              <p className="card-meta" style={{ color: 'var(--brand-dark)', fontWeight: 600 }}>
+                You need at least one photo to publish this listing.
+              </p>
+            )}
           </>
         )}
 

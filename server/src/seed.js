@@ -102,7 +102,7 @@ async function ensureUserDoc(uid, data) {
     console.log(`  users/${uid} exists — skipping`);
     return;
   }
-  await ref.set({ ...data, created_at: new Date().toISOString() });
+  await ref.set({ profile_completed: true, ...data, created_at: new Date().toISOString() });
   console.log(`  users/${uid} created`);
 }
 

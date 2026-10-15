@@ -4,6 +4,13 @@ import { api } from '../api';
 import { CITIES, inrShort } from '../format';
 import ListingCard from '../components/ListingCard';
 import { useAuth } from '../App';
+import { COFFEE_URL, COFFEE_LABEL } from '../config';
+
+const FEATURES = [
+  { icon: '🤝', lead: 'No brokers', rest: ' — talk to real owners' },
+  { icon: '💬', lead: 'Chat directly', rest: ' — no middlemen' },
+  { icon: '📅', lead: 'Book visits', rest: ' — pick a slot, show up' },
+];
 
 export default function Home() {
   const [featured, setFeatured] = useState([]);
@@ -14,7 +21,7 @@ export default function Home() {
   const { user } = useAuth();
 
   useEffect(() => {
-    api('/api/listings?limit=8').then((d) => setFeatured(d.listings)).catch(() => {});
+    api('/api/listings?limit=8').then((d) => setFeatured(d.listings || [])).catch(() => {});
   }, []);
 
   const toggleSave = async (listing) => {
@@ -36,24 +43,48 @@ export default function Home() {
 
   return (
     <div className="container">
-      <div className="hero">
-        <h1>Find your room. Find your people.</h1>
-        <p>Rooms, flatmates and flatshares across Mumbai, Hyderabad, Bangalore, Pune and Delhi NCR — posted by real people, not brokers.</p>
-        <form className="searchbar" onSubmit={submit}>
-          <input className="input" placeholder="Search area, keyword…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select className="select" value={city} onChange={(e) => setCity(e.target.value)}>
-            <option value="">All cities</option>
-            {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select className="select" value={maxRent} onChange={(e) => setMaxRent(e.target.value)}>
-            <option value="">Any budget</option>
-            <option value="10000">Under {inrShort(10000)}</option>
-            <option value="15000">Under {inrShort(15000)}</option>
-            <option value="20000">Under {inrShort(20000)}</option>
-            <option value="30000">Under {inrShort(30000)}</option>
-          </select>
-          <button className="btn" type="submit">Search</button>
-        </form>
+      <div className="hero dots">
+        <div className="hero-inner">
+          <span className="eyebrow">Rooms & flatmates across India</span>
+          <h1 className="hero-h">
+            Find your <span className="dim">room.</span>
+            <br />
+            Find your <span className="dim">people.</span>
+          </h1>
+          <p className="hero-sub">
+            Rooms, flatmates and flatshares across Mumbai, Hyderabad, Bangalore,
+            Pune and Delhi NCR — posted by real people, not brokers.
+          </p>
+          <form className="hero-search" onSubmit={submit}>
+            <div className="hs-field">
+              <input placeholder="Search area, keyword…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search area or keyword" />
+            </div>
+            <div className="hs-field">
+              <select value={city} onChange={(e) => setCity(e.target.value)} aria-label="City">
+                <option value="">All cities</option>
+                {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="hs-field">
+              <select value={maxRent} onChange={(e) => setMaxRent(e.target.value)} aria-label="Budget">
+                <option value="">Any budget</option>
+                <option value="10000">Under {inrShort(10000)}</option>
+                <option value="15000">Under {inrShort(15000)}</option>
+                <option value="20000">Under {inrShort(20000)}</option>
+                <option value="30000">Under {inrShort(30000)}</option>
+              </select>
+            </div>
+            <button className="btn btn-brand" type="submit">Search</button>
+          </form>
+          <div className="feature-strip">
+            {FEATURES.map((f) => (
+              <div className="feat" key={f.lead}>
+                <span className="feat-ico">{f.icon}</span>
+                <span><b>{f.lead}</b>{f.rest}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="section">
@@ -62,9 +93,9 @@ export default function Home() {
         </div>
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
           {CITIES.map((c) => (
-            <Link key={c} to={`/search?city=${encodeURIComponent(c)}`} className="card" style={{ padding: 20 }}>
-              <div style={{ fontWeight: 800, fontSize: 17 }}>{c}</div>
-              <div className="card-meta" style={{ marginTop: 4 }}>Rooms & flatmates →</div>
+            <Link key={c} to={`/search?city=${encodeURIComponent(c)}`} className="city-card">
+              <div className="city-name">{c}</div>
+              <div className="city-go">Rooms & flatmates <b>→</b></div>
             </Link>
           ))}
         </div>
@@ -82,14 +113,26 @@ export default function Home() {
       </div>
 
       <div className="section">
-        <div className="card" style={{ padding: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div className="cta-band dots-light">
           <div>
-            <h2 style={{ margin: '0 0 6px' }}>Have a spare room?</h2>
-            <p className="card-meta" style={{ margin: 0 }}>List it in under two minutes and meet your next flatmate.</p>
+            <h2>Have a spare room?</h2>
+            <p>List it in under two minutes and meet your next flatmate. Photos required — listings with photos get far more responses.</p>
           </div>
-          <Link to={user ? '/post' : '/signup'} className="btn">Post a room — it's free</Link>
+          <Link to={user ? '/post' : '/signup'} className="btn btn-light btn-lg">Post a room — it's free</Link>
         </div>
       </div>
+
+      {COFFEE_URL && (
+        <div className="section">
+          <div className="detail-card dots" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 18, padding: '30px 32px' }}>
+            <div>
+              <h3 className="serif" style={{ margin: '0 0 6px', fontSize: 22 }}>Roomie is free, forever.</h3>
+              <p className="card-meta" style={{ margin: 0, maxWidth: 520 }}>No commissions, no broker fees. If Roomie helped you find your room or your flatmate, you can support the running costs.</p>
+            </div>
+            <a className="btn btn-brand" href={COFFEE_URL} target="_blank" rel="noopener noreferrer">☕ {COFFEE_LABEL}</a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

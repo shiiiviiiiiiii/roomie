@@ -43,7 +43,9 @@ export const AMENITY_OPTIONS = [
 ];
 
 export function timeAgo(iso) {
+  if (!iso || typeof iso !== 'string') return '';
   const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+  if (Number.isNaN(d.getTime())) return '';
   const s = Math.max(1, Math.floor((Date.now() - d.getTime()) / 1000));
   if (s < 60) return 'just now';
   const m = Math.floor(s / 60);

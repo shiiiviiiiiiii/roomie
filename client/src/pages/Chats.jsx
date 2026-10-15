@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api';
 import { timeAgo } from '../format';
 import { useAuth } from '../App';
@@ -7,20 +7,26 @@ import { useAuth } from '../App';
 export default function Chats() {
   const [convs, setConvs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    api('/api/conversations').then((d) => setConvs(d.conversations)).catch(() => {}).finally(() => setLoading(false));
+    api('/api/conversations').then((d) => setConvs(d.conversations || [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const other = (c) => (c.user_a.id === user.id ? c.user_b : c.user_a);
+  if (authLoading || loading) return <div className="container"><div className="empty">Loading…</div></div>;
+  if (!user) return <Navigate to="/login" replace />;
+
+  const other = (c) => {
+    const a = c.user_a || {};
+    const b = c.user_b || {};
+    return a.id === user.id ? b : a;
+  };
 
   return (
     <div className="container">
       <h1 className="page-title">Chats</h1>
       <p className="page-sub">Conversations with owners and interested flatmates.</p>
-      {loading ? <div className="empty">Loading…</div>
-        : convs.length === 0 ? <div className="empty"><h3>No chats yet</h3><p>Open a listing and tap “Chat with owner” to start one.</p><Link to="/search" className="btn">Browse rooms</Link></div>
+      {convs.length === 0 ? <div className="empty"><h3>No chats yet</h3><p>Open a listing and tap “Chat with owner” to start one.</p><Link to="/search" className="btn">Browse rooms</Link></div>
         : convs.map((c) => {
             const o = other(c);
             return (
