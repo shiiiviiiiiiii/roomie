@@ -31,7 +31,10 @@ export default function ListingDetail() {
   if (error) return <div className="container"><div className="empty"><h3>Listing not found</h3><p>{error}</p><Link to="/search" className="btn">Back to search</Link></div></div>;
 
   const l = listing;
-  const isOwner = user && (user.id === l.user_id || user.role === 'admin');
+  const isMine = user && user.id === l.user_id;
+  const isAdmin = user && user.role === 'admin';
+  const isOwner = isMine || isAdmin;
+
 
   const needAuth = () => { if (!user) { navigate('/login'); return true; } return false; };
 
@@ -69,6 +72,15 @@ export default function ListingDetail() {
       setNotice('Thanks — our moderators will review this listing.');
     } catch (e) { alert(e.message); }
   };
+
+  const deleteListing = async () => {
+    if (!confirm('Delete this listing permanently?')) return;
+    try {
+      await api(`/api/listings/${l.id}`, { method: 'DELETE' });
+      navigate('/dashboard');
+    } catch (e) { alert(e.message); }
+  };
+
 
   return (
     <div className="container">
@@ -148,7 +160,17 @@ export default function ListingDetail() {
               </div>
             </div>
 
-            {!isOwner && (
+            {isMine ? (
+              <div>
+                <div className="alert ok" style={{ marginTop: 0 }}>This is your listing.</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                  <Link to="/dashboard" className="btn btn-outline" style={{ flex: 1, textAlign: 'center' }}>Manage in dashboard</Link>
+                  <button className="btn btn-danger" onClick={deleteListing}>Delete</button>
+                </div>
+              </div>
+            ) : isAdmin ? (
+              <div className="alert info" style={{ marginTop: 0 }}>Viewing as admin — <Link to="/admin" style={{ fontWeight: 700 }}>open Moderation</Link>.</div>
+            ) : (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn btn-brand" style={{ flex: 1 }} onClick={startChat}>Chat with owner</button>
                 <button className="btn btn-outline" onClick={toggleSave}>{l.is_saved ? '♥ Saved' : '♡ Save'}</button>
