@@ -6,8 +6,11 @@ import { timeAgo } from '../format';
 export default function Notifications() {
   const [notifs, setNotifs] = useState([]);
 
-  const load = () => api('/api/notifications').then((d) => setNotifs(d.notifications)).catch(() => {});
-  useEffect(load, []);
+  const load = () => api('/api/notifications').then((d) => setNotifs(d.notifications)).catch(() => { });
+  // NB: wrap in an arrow fn — passing `load` directly would make React treat
+  // the returned promise as an effect cleanup and crash on unmount.
+  useEffect(() => { load(); }, []);
+
 
   const markAll = async () => {
     await api('/api/notifications/read-all', { method: 'POST' });
@@ -23,7 +26,7 @@ export default function Notifications() {
       {notifs.length === 0 && <div className="empty"><h3>All caught up</h3><p>Messages, visit updates and moderation alerts will appear here.</p></div>}
       {notifs.map((n) => (
         <Link key={n.id} to={n.link || '/notifications'} className={`notif ${n.is_read ? '' : 'unread'}`}
-          onClick={() => !n.is_read && api(`/api/notifications/${n.id}/read`, { method: 'PATCH' }).catch(() => {})}>
+          onClick={() => !n.is_read && api(`/api/notifications/${n.id}/read`, { method: 'PATCH' }).catch(() => { })}>
           <div className="body">
             <div className="title">{n.title}</div>
             {n.body && <div className="text">{n.body}</div>}
