@@ -1,0 +1,22 @@
+# Netlify: builds client/, serves it statically, and runs the Express API
+# as a serverless function (netlify/functions/api.js) for /api/* routes.
+# Single site, single URL — no separate backend host, no CORS setup.
+[build]
+  command = "npm install --prefix client && npm run build --prefix client"
+  publish = "client/dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# API -> serverless function (must come before the SPA fallback)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# React Router fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

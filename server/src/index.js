@@ -18,6 +18,8 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 
 // Don't advertise the framework — minor fingerprinting reduction.
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
 
 // ---------------------------------------------------------------------------
 // Security headers (helmet)
