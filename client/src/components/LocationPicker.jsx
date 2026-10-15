@@ -23,7 +23,7 @@ function pinIcon() {
     });
 }
 
-export default function LocationPicker({ city, lat, lng, onPick }) {
+export default function LocationPicker({ city, lat, lng, onPick, initialCenter }) {
     const ref = useRef(null);
     const mapRef = useRef(null);
     const markerRef = useRef(null);
@@ -33,7 +33,10 @@ export default function LocationPicker({ city, lat, lng, onPick }) {
     // Create the map once.
     useEffect(() => {
         if (!ref.current || mapRef.current) return;
-        const map = L.map(ref.current).setView(CITY_CENTERS[city] || INDIA, 12);
+        // Prefer an explicit center, then an existing pin, then the city.
+        const center = initialCenter || (lat != null && lng != null ? [lat, lng] : null)
+            || CITY_CENTERS[city] || INDIA;
+        const map = L.map(ref.current).setView(center, 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors',
             maxZoom: 18,

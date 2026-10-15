@@ -26,11 +26,17 @@ const updateMeSchema = z.object({
   bio: z.string().trim().max(2000).nullable().optional(),
   avatar_url: z.string().trim().max(500).nullable().optional(),
   profile_completed: z.boolean().optional(),
+  // Listing alert preferences: get notified about new rooms within 10km.
+  alert_lat: z.coerce.number().min(-90).max(90).nullable().optional(),
+  alert_lng: z.coerce.number().min(-180).max(180).nullable().optional(),
+  alert_area: z.string().trim().max(120).nullable().optional(),
+  alerts_enabled: z.boolean().optional(),
 }).refine((o) => Object.keys(o).length > 0, { message: 'At least one field must be provided' });
 
 async function updateMe(req, res) {
   const patch = {};
-  for (const f of ['name', 'phone', 'gender', 'occupation', 'bio', 'avatar_url', 'profile_completed']) {
+  for (const f of ['name', 'phone', 'gender', 'occupation', 'bio', 'avatar_url', 'profile_completed',
+    'alert_lat', 'alert_lng', 'alert_area', 'alerts_enabled']) {
     if (req.body[f] !== undefined) patch[f] = req.body[f];
   }
   const user = await store.updateUser(req.user.id, patch);

@@ -7,6 +7,24 @@ const { validate, idParam, z } = require('../middleware/validate');
 
 const router = express.Router();
 
+const ALERT_RADIUS_KM = 10;
+
+// Fan out a "new listing near you" notification to every user whose alert
+// area is within ALERT_RADIUS_KM of the new listing (excluding the owner).
+async function notifyNearbySubscribers(listing, lat, lng) {
+  const subs = await store.listAlertSubscribers(listing.user_id);
+  const nearby = subs.filter((u) => {
+    const d = store.haversineKm(lat, lng, Number(u.alert_lat), Number(u.alert_lng));
+    return d <= ALERT_RADIUS_KM;
+  });
+  await Promise.all(nearby.map((u) => notify(u.id, {
+    type: 'listing_alert',
+    title: `New room near ${u.alert_area || 'your alert area'}`,
+    body: `${listing.title} — ₹${Number(listing.rent).toLocaleString('en-IN')}/month`,
+    link: `/listing/${listing.id}`,
+  })));
+}
+
 // GET /api/listings — browse with filters
 router.get('/', async (req, res, next) => {
   try {
@@ -84,6 +102,13 @@ router.post('/', authRequired, validate(createListingSchema), async (req, res, n
       title, description, city, area, address, lat, lng, rent, deposit,
       bhk, room_type, furnishing, tenant_preference, available_from, images, amenities,
     });
+    // Notify users whose alert area is within 10km of this listing.
+    // Fire-and-forget: a slow or failing fan-out must never block publishing.
+    if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+      notifyNearbySubscribers(listing, Number(lat), Number(lng)).catch((e) => {
+        console.error('listing alert fan-out failed:', e.message);
+      });
+    }
     res.status(201).json({ listing });
   } catch (e) { next(e); }
 });

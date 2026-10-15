@@ -2089,3 +2089,62 @@ a.notif:hover {
   border: 3px solid #fff;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
 }
+/* Popup toasts (Reddit-style) for incoming alerts */
+.toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(360px, calc(100vw - 32px));
+}
+.toast {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 36px 12px 14px;
+  box-shadow: 0 8px 30px rgba(42, 33, 26, 0.18);
+  cursor: pointer;
+  animation: toast-in 0.25s ease-out;
+}
+.toast-title { font-weight: 700; font-size: 14px; color: var(--ink); }
+.toast-body {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.toast-x {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.toast-x:hover { color: var(--ink); background: var(--bg-deep); }
+@keyframes toast-in {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* Profile photo picker + camera */
+.avatar.xl { width: 96px; height: 96px; font-size: 36px; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.photo-picker-row { display: flex; gap: 16px; align-items: center; margin: 12px 0; }
+.camera-wrap { margin-top: 12px; }
+.camera-video { width: 100%; max-width: 420px; border-radius: 12px; background: #000; }
+
+/* Listing alerts */
+.alert-row { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0; }
+.alert-row input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--brand); }

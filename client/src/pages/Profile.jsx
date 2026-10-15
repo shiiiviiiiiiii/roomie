@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../App';
 import { timeAgo } from '../format';
+import ProfilePhotoPicker from '../components/ProfilePhotoPicker';
+import LocationPicker from '../components/LocationPicker';
 
 export default function Profile() {
   const { user, setUser } = useAuth();
@@ -10,6 +12,9 @@ export default function Profile() {
   const [form, setForm] = useState({
     name: user.name, phone: user.phone || '', occupation: user.occupation || '',
     bio: user.bio || '', gender: user.gender || '',
+    alerts_enabled: !!user.alerts_enabled,
+    alert_lat: user.alert_lat ?? null, alert_lng: user.alert_lng ?? null,
+    alert_area: user.alert_area || '',
   });
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
@@ -31,9 +36,27 @@ export default function Profile() {
 
   const submit = async (e) => {
     e.preventDefault(); setError(''); setSaved(false);
+    if (form.alerts_enabled && (form.alert_lat == null || form.alert_lng == null)) {
+      setError('Drop a pin on the map for your alert area, or turn listing alerts off.');
+      return;
+    }
     try {
-      const { user: u } = await api('/api/auth/me', { method: 'PATCH', body: form });
+      const body = {
+        ...form,
+        alert_area: form.alert_area.trim() || null,
+        alert_lat: form.alerts_enabled ? form.alert_lat : null,
+        alert_lng: form.alerts_enabled ? form.alert_lng : null,
+      };
+      const { user: u } = await api('/api/auth/me', { method: 'PATCH', body });
       setUser(u); setSaved(true); setEditing(false);
+    } catch (err) { setError(err.message); }
+  };
+
+  const savePhoto = async (url) => {
+    setError('');
+    try {
+      const { user: u } = await api('/api/auth/me', { method: 'PATCH', body: { avatar_url: url } });
+      setUser(u);
     } catch (err) { setError(err.message); }
   };
 
@@ -42,7 +65,7 @@ export default function Profile() {
   return (
     <div className="container">
       <div className="profile-head dots-light">
-        <div className="avatar lg">{initial}</div>
+        <div className="avatar lg">{user.avatar_url ? <img src={user.avatar_url} alt={user.name} /> : initial}</div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <h1>{user.name}</h1>
           <p className="p-sub">{user.email}{user.created_at ? ` · joined ${timeAgo(user.created_at)}` : ''}</p>
@@ -57,6 +80,13 @@ export default function Profile() {
           <div className="pstat"><div className="n">{stats.chats ?? '–'}</div><div className="l">Chats</div></div>
         </div>
       </div>
+
+      {!user.avatar_url && (
+        <div className="alert info" style={{ marginTop: 18 }}>
+          <b>Profile photo required.</b> Add one below — owners respond faster to profiles with a photo.
+          {!editing && <> Tap <b>“Edit profile”</b> to upload one or take a selfie.</>}
+        </div>
+      )}
 
       {!editing ? (
         <div className="profile-grid">
@@ -90,6 +120,19 @@ export default function Profile() {
                 in advance before a visit.
               </p>
             </div>
+            <div className="detail-card" style={{ marginTop: 22 }}>
+              <h3>Listing alerts</h3>
+              {user.alerts_enabled && user.alert_lat != null ? (
+                <p className="card-meta" style={{ marginTop: 0, lineHeight: 1.6 }}>
+                  🔔 <b>On</b> — you'll be notified about new rooms within 10&nbsp;km of{' '}
+                  <b>{user.alert_area || 'your pinned area'}</b>.
+                </p>
+              ) : (
+                <p className="card-meta" style={{ marginTop: 0, lineHeight: 1.6 }}>
+                  🔕 <b>Off</b> — tap “Edit profile” to get notified about new rooms near you.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       ) : (
@@ -97,7 +140,9 @@ export default function Profile() {
           <h3>Edit profile</h3>
           {error && <div className="alert error">{error}</div>}
           {saved && <div className="alert ok">Profile updated.</div>}
-          <form onSubmit={submit}>
+          <label className="label">Profile photo * <span style={{ fontWeight: 400 }}>(required)</span></label>
+          <ProfilePhotoPicker currentUrl={user.avatar_url} onSave={savePhoto} />
+          <form onSubmit={submit} style={{ marginTop: 18 }}>
             <label className="label">Full name</label>
             <input className="input" value={form.name} onChange={(e) => set('name', e.target.value)} />
             <div className="form-row">
@@ -108,6 +153,35 @@ export default function Profile() {
             </div>
             <label className="label">About you</label>
             <textarea className="textarea" value={form.bio} onChange={(e) => set('bio', e.target.value)} placeholder="Work hours, habits, what you're looking for…" />
+            <h3 style={{ marginTop: 26 }}>Listing alerts</h3>
+            <label className="alert-row" style={{ cursor: 'pointer' }}>
+              <input
+                type="checkbox" checked={form.alerts_enabled}
+                onChange={(e) => set('alerts_enabled', e.target.checked)}
+              />
+              <span>
+                <b>Notify me about new rooms within 10&nbsp;km</b>
+                <span className="card-meta" style={{ display: 'block', marginTop: 2 }}>
+                  Drop a pin where you're looking — you'll get an alert when a room is posted nearby.
+                </span>
+              </span>
+            </label>
+            {form.alerts_enabled && (
+              <>
+                <label className="label">Alert area *</label>
+                <input
+                  className="input" value={form.alert_area}
+                  onChange={(e) => set('alert_area', e.target.value)}
+                  placeholder="e.g. Gachibowli, Hyderabad"
+                />
+                <div style={{ marginTop: 10 }}>
+                  <LocationPicker
+                    lat={form.alert_lat} lng={form.alert_lng}
+                    onPick={(lat, lng) => setForm((f) => ({ ...f, alert_lat: lat, alert_lng: lng }))}
+                  />
+                </div>
+              </>
+            )}
             <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
               <button className="btn" type="submit">Save profile</button>
               <button className="btn btn-ghost" type="button" onClick={() => setEditing(false)}>Cancel</button>

@@ -153,7 +153,7 @@ export default function ListingDetail() {
             {l.deposit ? <div className="card-meta" style={{ marginTop: 2 }}>+ {inr(l.deposit)} deposit</div> : null}
 
             <div className="owner-box">
-              <div className="avatar">{(l.owner_name || '?')[0].toUpperCase()}</div>
+              <div className="avatar">{l.owner_avatar ? <img src={l.owner_avatar} alt={l.owner_name} /> : (l.owner_name || '?')[0].toUpperCase()}</div>
               <div>
                 <div style={{ fontWeight: 700 }}>{l.owner_name}</div>
                 <div className="card-meta">Listing owner</div>

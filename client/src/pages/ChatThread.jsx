@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { timeAgo } from '../format';
-import { useAuth } from '../App';
+import { useAuth, useToast } from '../App';
 
 export default function ChatThread() {
   const { id } = useParams();
@@ -13,6 +13,7 @@ export default function ChatThread() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const { user, loading: authLoading } = useAuth();
+  const { pushToast } = useToast() || {};
   const bottomRef = useRef(null);
 
   const load = useCallback(() => {
@@ -52,7 +53,8 @@ export default function ChatThread() {
       const { message } = await api(`/api/conversations/${id}/messages`, { method: 'POST', body: { body } });
       setMessages((ms) => [...ms, message]);
     } catch (err) {
-      alert(err.message);
+      if (pushToast) pushToast({ title: 'Message not sent', body: err.message });
+      else alert(err.message);
       // Restore the draft so the user doesn't lose their message
       setDraft(body);
     } finally {
@@ -76,7 +78,7 @@ export default function ChatThread() {
       <div className="chat-split">
         <aside className="frost-card chat-peer">
           <Link to="/chats" className="chat-back">← All chats</Link>
-          <div className="avatar lg" style={{ margin: '14px auto 10px' }}>{initial}</div>
+          <div className="avatar lg" style={{ margin: '14px auto 10px' }}>{other.avatar_url ? <img src={other.avatar_url} alt={other.name} /> : initial}</div>
           <h3 className="serif" style={{ textAlign: 'center', margin: '0 0 2px', fontSize: 22 }}>
             {other.id ? <Link to={`/u/${other.id}`}>{other.name || 'Roomie user'}</Link> : (other.name || 'Roomie user')}
           </h3>

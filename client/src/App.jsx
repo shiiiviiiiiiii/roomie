@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, Component } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, Component } from 'react';
 import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
@@ -124,16 +124,36 @@ function AuthProvider({ children }) {
 function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { pushToast } = useToast() || {};
   const [unread, setUnread] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const seenRef = useRef(null); // null until the first poll seeds it
 
   useEffect(() => {
-    if (!user) { setUnread(0); return; }
-    const load = () => api('/api/notifications').then((d) => setUnread(d.unread_count)).catch(() => {});
+    if (!user) { setUnread(0); seenRef.current = null; return; }
+    const load = () => api('/api/notifications').then((d) => {
+      setUnread(d.unread_count);
+      const list = d.notifications || [];
+      if (seenRef.current === null) {
+        // First poll seeds the seen set — no toasts for old alerts.
+        seenRef.current = new Set(list.map((n) => n.id));
+        return;
+      }
+      const fresh = list.filter((n) => !seenRef.current.has(n.id));
+      fresh.forEach((n) => seenRef.current.add(n.id));
+      // Oldest first so the newest toast ends up on top.
+      fresh.reverse().forEach((n) => {
+        // Don't pop a toast for the page the user is already looking at.
+        if (pushToast && n.link && n.link !== location.pathname) {
+          pushToast({ title: n.title || 'New alert', body: n.body, link: n.link });
+        }
+      });
+    }).catch(() => {});
     load();
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
-  }, [user]);
+  }, [user, pushToast, location.pathname]);
 
   const go = (to) => { setMenuOpen(false); navigate(to); };
 
@@ -195,6 +215,51 @@ function RequireAuth({ children }) {
   return children;
 }
 
+// Reddit-style popup toasts for incoming alerts (new messages, visit
+// updates…). Blocking `alert()` dialogs are never used for these.
+const ToastCtx = createContext(null);
+export const useToast = () => useContext(ToastCtx);
+
+function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+  const navigate = useNavigate();
+
+  const dismiss = useCallback((id) => {
+    setToasts((ts) => ts.filter((t) => t.id !== id));
+  }, []);
+
+  const pushToast = useCallback((t) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setToasts((ts) => [...ts.slice(-2), { ...t, id }]); // keep max 3 stacked
+    setTimeout(() => {
+      setToasts((ts) => ts.filter((x) => x.id !== id));
+    }, 6000);
+  }, []);
+
+  const open = (t) => {
+    dismiss(t.id);
+    if (t.link) navigate(t.link);
+  };
+
+  return (
+    <ToastCtx.Provider value={{ pushToast, dismiss }}>
+      {children}
+      <div className="toasts" aria-live="polite">
+        {toasts.map((t) => (
+          <div key={t.id} className="toast" role="button" tabIndex={0}
+            onClick={() => open(t)}
+            onKeyDown={(e) => { if (e.key === 'Enter') open(t); }}>
+            <div className="toast-title">{t.title}</div>
+            {t.body && <div className="toast-body">{t.body}</div>}
+            <button type="button" aria-label="Dismiss" className="toast-x"
+              onClick={(e) => { e.stopPropagation(); dismiss(t.id); }}>✕</button>
+          </div>
+        ))}
+      </div>
+    </ToastCtx.Provider>
+  );
+}
+
 // Catches render crashes anywhere below and offers a retry instead of a
 // blank page. Shows the technical error in a collapsed panel so it can be
 // reported, and resets itself whenever the route changes.
@@ -220,10 +285,12 @@ class ErrorBoundary extends Component {
           <h3>Something went wrong</h3>
           <p>The page hit an unexpected error. Your data is safe.</p>
           <button className="btn" type="button" onClick={() => { this.setState({ error: null, info: null }); window.location.reload(); }}>Reload the page</button>
-          <details style={{ marginTop: 18, textAlign: 'left', fontSize: 12.5, color: 'var(--muted)' }}>
-            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Technical details (for bug reports)</summary>
-            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'var(--bg-deep)', padding: 12, borderRadius: 8, marginTop: 8 }}>{msg}{stack ? `\n${stack}` : ''}</pre>
-          </details>
+          {import.meta.env.DEV && (
+            <details style={{ marginTop: 18, textAlign: 'left', fontSize: 12.5, color: 'var(--muted)' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Technical details (for bug reports)</summary>
+              <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'var(--bg-deep)', padding: 12, borderRadius: 8, marginTop: 8 }}>{msg}{stack ? `\n${stack}` : ''}</pre>
+            </details>
+          )}
         </div>
       </div>
     );
@@ -280,7 +347,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Shell />
+        <ToastProvider>
+          <Shell />
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   );

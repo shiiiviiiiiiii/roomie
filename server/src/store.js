@@ -49,6 +49,10 @@ function publicUser(u) {
     bio: u.bio ?? null,
     avatar_url: u.avatar_url ?? null,
     profile_completed: u.profile_completed ?? false,
+    alert_lat: u.alert_lat ?? null,
+    alert_lng: u.alert_lng ?? null,
+    alert_area: u.alert_area ?? null,
+    alerts_enabled: u.alerts_enabled ?? false,
     created_at: u.created_at ?? null,
   };
 }
@@ -588,6 +592,23 @@ async function countOpenReports() {
 // notifications
 // ---------------------------------------------------------------------------
 
+// Haversine distance in km — shared by listing proximity search and alert matching.
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const s = Math.sin(toRad(lat2 - lat1) / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(toRad(lng2 - lng1) / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(s));
+}
+
+// Users who opted into listing alerts and set a location, excluding `excludeUid`.
+async function listAlertSubscribers(excludeUid) {
+  const snap = await db.collection('users').where('alerts_enabled', '==', true).get();
+  return snap.docs
+    .map(docShape)
+    .filter((u) => u && u.id !== String(excludeUid)
+      && Number.isFinite(Number(u.alert_lat)) && Number.isFinite(Number(u.alert_lng)));
+}
+
 async function addNotification(userId, { type, title, body, link }) {
   await db.collection('notifications').add({
     user_id: String(userId),
@@ -694,4 +715,6 @@ module.exports = {
   listNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  haversineKm,
+  listAlertSubscribers,
 };
