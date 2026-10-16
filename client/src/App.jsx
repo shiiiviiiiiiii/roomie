@@ -132,7 +132,7 @@ function Navbar() {
 
   useEffect(() => {
     if (!user) { setUnread(0); seenRef.current = null; return; }
-    const load = () => api('/api/notifications').then((d) => {
+    const load = () => api('/api/notifications', { noCache: true }).then((d) => {
       setUnread(d.unread_count);
       const list = d.notifications || [];
       if (seenRef.current === null) {

@@ -4,6 +4,7 @@ const { authRequired } = require('../middleware/auth');
 const { optionalViewerUid } = require('../middleware/optionalAuth');
 const { notify } = require('../utils/notify');
 const { validate, idParam, z } = require('../middleware/validate');
+const { cache } = require('../cache');
 
 const router = express.Router();
 
@@ -26,7 +27,7 @@ async function notifyNearbySubscribers(listing, lat, lng) {
 }
 
 // GET /api/listings — browse with filters
-router.get('/', async (req, res, next) => {
+router.get('/', cache(30), async (req, res, next) => {
   try {
     const {
       city, q, min_rent, max_rent, bhk, room_type, furnishing, tenant_preference,
@@ -54,7 +55,7 @@ router.get('/saved/mine', authRequired, async (req, res, next) => {
 });
 
 // GET /api/listings/:id
-router.get('/:id', validate({ params: idParam }), async (req, res, next) => {
+router.get('/:id', validate({ params: idParam }), cache(60), async (req, res, next) => {
   try {
     const vid = await optionalViewerUid(req);
     const listing = await store.getListing(req.params.id, vid);

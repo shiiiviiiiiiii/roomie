@@ -18,7 +18,7 @@ export default function ChatThread() {
   const bottomRef = useRef(null);
 
   const load = useCallback(() => {
-    api(`/api/conversations/${id}/messages`).then((d) => {
+    api(`/api/conversations/${id}/messages`, { noCache: true }).then((d) => {
       setError(''); // clear any previous error on a successful load
       setConv(d.conversation || null);
       setMessages(d.messages || []);

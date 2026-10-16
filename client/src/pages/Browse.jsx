@@ -1,6 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api } from '../api';
+import { api, bustApiCache } from '../api';
 import { CITIES, BHK_OPTIONS, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, inrShort } from '../format';
 import ListingCard from '../components/ListingCard';
 // Leaflet is heavy (~150KB) — load it only when the map is actually shown.

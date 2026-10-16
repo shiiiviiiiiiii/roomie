@@ -1,216 +1,224 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
-import { api } from '../api';
-import { inr, inrShort, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, timeAgo, formatDate } from '../format';
-import { thumb } from '../img';
-// Leaflet is heavy — load it only when the map section renders.
-const MapView = lazy(() => import('../components/MapView'));
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { api, bustApiCache } from '../api';
+import { CITIES, BHK_OPTIONS, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, inrShort } from '../format';
+import ListingCard from '../components/ListingCard';
+// Leaflet is heavy (~150KB) — load it only when the map is actually shown.
+const ListingsMap = lazy(() => import('../components/ListingsMap'));
+import PlaceSearch from '../components/PlaceSearch';
 import { useAuth } from '../App';
 
-const REPORT_REASONS = ['Spam or scam', 'Wrong details', 'Already rented', 'Inappropriate content', 'Other'];
+// Free geocoding (OpenStreetMap Nominatim) — turns "near my office/college"
+// into coordinates the API can filter by.
+async function geocode(text) {
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(text)}`, {
+    headers: { Accept: 'application/json' },
+  });
+  const arr = await res.json();
+  if (!arr.length) throw new Error('Could not find that place — try a nearby landmark.');
+  return { lat: Number(arr[0].lat), lng: Number(arr[0].lon), name: arr[0].display_name.split(',').slice(0, 2).join(',') };
+}
 
-export default function ListingDetail() {
-  const { id } = useParams();
-  const [listing, setListing] = useState(null);
-  const [photo, setPhoto] = useState(0);
+export default function Browse() {
+  const [params, setParams] = useSearchParams();
+  const [listings, setListings] = useState([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [visitDate, setVisitDate] = useState('');
-  const [visitNote, setVisitNote] = useState('');
-  const [showReport, setShowReport] = useState(false);
-  const [reportReason, setReportReason] = useState(REPORT_REASONS[0]);
-  const [reportDetails, setReportDetails] = useState('');
-  const [notice, setNotice] = useState('');
-  const { user } = useAuth();
+  const [nearText, setNearText] = useState(params.get('near_label') || '');
+  const [nearLabel, setNearLabel] = useState(params.get('near_label') || '');
+  const [geoError, setGeoError] = useState('');
+  const [mobileView, setMobileView] = useState('list'); // 'list' | 'map'
+  const [activePin, setActivePin] = useState(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     setLoading(true);
-    api(`/api/listings/${id}`).then((d) => setListing(d.listing)).catch((e) => setError(e.message)).finally(() => setLoading(false));
-  }, [id]);
+    api(`/api/listings?${params.toString()}`).then((d) => {
+      setListings(d.listings || []); setTotal(d.total || 0);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [params]);
 
-  if (loading) return <div className="container"><div className="empty">Loading…</div></div>;
-  if (error) return <div className="container"><div className="empty"><h3>Listing not found</h3><p>{error}</p><Link to="/search" className="btn">Back to search</Link></div></div>;
+  const set = (k, v) => {
+    const next = new URLSearchParams(params);
+    if (v) next.set(k, v); else next.delete(k);
+    setParams(next);
+  };
 
-  const l = listing;
-  const isMine = user && user.id === l.user_id;
-  const isAdmin = user && user.role === 'admin';
-  const isOwner = isMine || isAdmin;
+  const clearFilters = () => {
+    setParams(new URLSearchParams());
+    setNearText(''); setNearLabel('');
+  };
 
+  const applyNearPlace = (g) => {
+    setGeoError('');
+    const next = new URLSearchParams(params);
+    next.set('near_lat', g.lat.toFixed(4));
+    next.set('near_lng', g.lng.toFixed(4));
+    next.set('near_km', '8');
+    next.set('near_label', g.name);
+    setParams(next);
+    setNearLabel(g.name);
+  };
 
-  const needAuth = () => { if (!user) { navigate('/login'); return true; } return false; };
-
-  const toggleSave = async () => {
-    if (needAuth()) return;
+  const applyNear = async (e) => {
+    e.preventDefault();
+    setGeoError('');
+    const t = nearText.trim();
+    if (!t) return;
     try {
-      const { saved } = await api(`/api/listings/${l.id}/save`, { method: 'POST' });
-      setListing({ ...l, is_saved: saved });
+      const g = await geocode(t);
+      applyNearPlace(g);
+    } catch (err) { setGeoError(err.message); }
+  };
+
+  const clearNear = () => {
+    const next = new URLSearchParams(params);
+    ['near_lat', 'near_lng', 'near_km', 'near_label'].forEach((k) => next.delete(k));
+    setParams(next);
+    setNearText(''); setNearLabel('');
+  };
+
+  const useMyLocation = () => {
+    setGeoError('');
+    if (!navigator.geolocation) { setGeoError('Geolocation is not supported on this device.'); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const next = new URLSearchParams(params);
+        next.set('near_lat', pos.coords.latitude.toFixed(4));
+        next.set('near_lng', pos.coords.longitude.toFixed(4));
+        next.set('near_km', '8');
+        next.set('near_label', 'your location');
+        setParams(next);
+        setNearLabel('your location');
+      },
+      () => setGeoError('Could not get your location — check browser permissions.'),
+      { timeout: 10000 }
+    );
+  };
+
+  const toggleSave = async (listing) => {
+    if (!user) { navigate('/login'); return; }
+    try {
+      const { saved } = await api(`/api/listings/${listing.id}/save`, { method: 'POST' });
+      setListings((xs) => xs.map((x) => (x.id === listing.id ? { ...x, is_saved: saved } : x)));
     } catch (e) { alert(e.message); }
   };
 
-  const startChat = async () => {
-    if (needAuth()) return;
-    try {
-      const { conversation } = await api('/api/conversations', { method: 'POST', body: { listing_id: l.id } });
-      navigate(`/chats/${conversation.id}`);
-    } catch (e) { alert(e.message); }
+  const f = {
+    q: params.get('q') || '',
+    city: params.get('city') || '',
+    max_rent: params.get('max_rent') || '',
+    sort: params.get('sort') || 'newest',
   };
-
-  const requestVisit = async () => {
-    if (needAuth()) return;
-    if (!visitDate) { alert('Pick a date and time for the visit.'); return; }
-    try {
-      await api('/api/visits', { method: 'POST', body: { listing_id: l.id, scheduled_at: visitDate, note: visitNote } });
-      setNotice('Visit requested! The owner has been notified and can confirm it.');
-      setVisitDate(''); setVisitNote('');
-    } catch (e) { alert(e.message); }
-  };
-
-  const submitReport = async () => {
-    if (needAuth()) return;
-    try {
-      await api(`/api/listings/${l.id}/report`, { method: 'POST', body: { reason: reportReason, details: reportDetails } });
-      setShowReport(false); setReportDetails('');
-      setNotice('Thanks — our moderators will review this listing.');
-    } catch (e) { alert(e.message); }
-  };
-
-  const deleteListing = async () => {
-    if (!confirm('Delete this listing permanently?')) return;
-    try {
-      await api(`/api/listings/${l.id}`, { method: 'DELETE' });
-      navigate('/dashboard');
-    } catch (e) { alert(e.message); }
-  };
-
+  const activeFilterCount = ['city', 'min_rent', 'max_rent', 'bhk', 'room_type', 'furnishing', 'tenant_preference']
+    .filter((k) => params.get(k)).length + (params.get('near_lat') ? 1 : 0);
 
   return (
     <div className="container">
-      <div className="detail-hero">
-        {l.images && l.images.length > 0 ? (
-          <>
-            <img className="gallery-main" src={thumb(l.images[photo], 1200)} alt={l.title} />
-            {l.images.length > 1 && (
-              <div className="gallery-thumbs">
-                {l.images.map((src, i) => (
-                  <img key={i} src={thumb(src, 200)} alt="" className={i === photo ? 'active' : ''} onClick={() => setPhoto(i)} />
-                ))}
-              </div>
-            )}
-          </>
-        ) : <div className="gallery-main" />}
+      <span className="eyebrow" style={{ marginTop: 26 }}>Find a room</span>
+      <h1 className="page-title" style={{ marginTop: 0 }}>
+        {nearLabel ? <>Near <span style={{ color: 'var(--brand-dark)' }}>{nearLabel}</span></> : 'Every home, on one map.'}
+      </h1>
+      <p className="page-sub">{total} {total === 1 ? 'home' : 'homes'} available{nearLabel ? ' within 8 km' : ''}</p>
+
+      <form className="browse-search" onSubmit={applyNear}>
+        <div className="bs-field">
+          <input placeholder="Search area, keyword…" value={f.q} onChange={(e) => set('q', e.target.value)} aria-label="Keyword" />
+        </div>
+        <div className="bs-field">
+          <PlaceSearch
+            value={nearText}
+            onChange={setNearText}
+            onSelect={applyNearPlace}
+            placeholder="Near office / college…"
+          />
+        </div>
+        <div className="bs-field narrow">
+          <select value={f.max_rent} onChange={(e) => set('max_rent', e.target.value)} aria-label="Max budget">
+            <option value="">Any budget</option>
+            {[10000, 15000, 20000, 30000, 50000].map((v) => <option key={v} value={v}>Under {inrShort(v)}</option>)}
+          </select>
+        </div>
+        <button className="btn btn-brand" type="submit">Search</button>
+      </form>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+        <button type="button" className="fpill" onClick={useMyLocation}>📍 Use my location</button>
+        {nearLabel && <button type="button" className="fpill on" onClick={clearNear}>Near: {nearLabel} <span className="x">✕</span></button>}
+      </div>
+      {geoError && <div className="alert error" style={{ marginTop: 8 }}>{geoError}</div>}
+
+      <div className="filter-pills">
+        <span className="fpill" style={{ cursor: 'default', border: 'none', background: 'none', paddingLeft: 0 }}>
+          {activeFilterCount > 0 ? `${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''}` : 'Filters'}
+        </span>
+        <label className={`fpill ${f.city ? 'on' : ''}`}>
+          <select value={f.city} onChange={(e) => set('city', e.target.value)} aria-label="City">
+            <option value="">City</option>
+            {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
+        <label className={`fpill ${params.get('bhk') ? 'on' : ''}`}>
+          <select value={params.get('bhk') || ''} onChange={(e) => set('bhk', e.target.value)} aria-label="Size">
+            <option value="">Size</option>
+            {BHK_OPTIONS.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </label>
+        <label className={`fpill ${params.get('room_type') ? 'on' : ''}`}>
+          <select value={params.get('room_type') || ''} onChange={(e) => set('room_type', e.target.value)} aria-label="Room type">
+            <option value="">Room type</option>
+            {Object.entries(ROOM_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+        <label className={`fpill ${params.get('furnishing') ? 'on' : ''}`}>
+          <select value={params.get('furnishing') || ''} onChange={(e) => set('furnishing', e.target.value)} aria-label="Furnishing">
+            <option value="">Furnishing</option>
+            {Object.entries(FURNISHING_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+        <label className={`fpill ${params.get('tenant_preference') ? 'on' : ''}`}>
+          <select value={params.get('tenant_preference') || ''} onChange={(e) => set('tenant_preference', e.target.value)} aria-label="Looking for">
+            <option value="">Looking for</option>
+            {Object.entries(TENANT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+        <label className={`fpill ${f.sort !== 'newest' ? 'on' : ''}`}>
+          <select value={f.sort} onChange={(e) => set('sort', e.target.value)} aria-label="Sort">
+            <option value="newest">Newest</option>
+            <option value="price_asc">Price ↑</option>
+            <option value="price_desc">Price ↓</option>
+          </select>
+        </label>
+        {activeFilterCount > 0 && <button type="button" className="fpill" onClick={clearFilters}>Clear all ✕</button>}
       </div>
 
-      <div className="detail">
-        <div>
-          <span className="eyebrow">{l.area}, {l.city}</span>
-          <h1 className="page-title" style={{ marginTop: 0 }}>{l.title}</h1>
-          <p className="page-sub">
-            {ROOM_TYPE_LABELS[l.room_type]}{l.bhk ? ` · ${l.bhk}` : ''} · {FURNISHING_LABELS[l.furnishing]} · listed {timeAgo(l.created_at)}
-          </p>
+      <div className="view-toggle">
+        <button type="button" className={`fpill ${mobileView === 'list' ? 'on' : ''}`} onClick={() => setMobileView('list')}>☰ List</button>
+        <button type="button" className={`fpill ${mobileView === 'map' ? 'on' : ''}`} onClick={() => setMobileView('map')}>🗺 Map</button>
+      </div>
 
-          {l.description && <p style={{ lineHeight: 1.7, fontSize: 15.5 }}>{l.description}</p>}
-
-          <div className="info-cards">
-            <div className="frost-card info-card">
-              <h3>Why this home</h3>
-              <div className="fact-grid">
-                <div className="fact"><span className="fact-k">Offering</span><span className="fact-v">{ROOM_TYPE_LABELS[l.room_type]}</span></div>
-                {l.bhk && <div className="fact"><span className="fact-k">Size</span><span className="fact-v">{l.bhk}</span></div>}
-                <div className="fact"><span className="fact-k">Furnishing</span><span className="fact-v">{FURNISHING_LABELS[l.furnishing]}</span></div>
-                <div className="fact"><span className="fact-k">Looking for</span><span className="fact-v">{TENANT_LABELS[l.tenant_preference]}</span></div>
-                {l.available_from && <div className="fact"><span className="fact-k">Available</span><span className="fact-v">{formatDate(l.available_from)}</span></div>}
-                {l.deposit ? <div className="fact"><span className="fact-k">Deposit</span><span className="fact-v">{inr(l.deposit)}</span></div> : null}
-              </div>
-            </div>
-
-            <div className="frost-card info-card">
-              <h3>Things to know</h3>
-              <ul className="know-list">
-                <li>📍 Approximate location is shown — the exact address is shared by the owner over chat.</li>
-                <li>💬 Chat first, visit second. Genuine owners expect it.</li>
-                <li>🚫 Never pay token money or deposits before a visit.</li>
-                {l.available_from && <li>📅 Available from {formatDate(l.available_from)}.</li>}
-              </ul>
-            </div>
-          </div>
-
-          {l.amenities && l.amenities.length > 0 && (
-            <div className="detail-card" style={{ marginTop: 22 }}>
-              <h3>Amenities</h3>
-              <div className="amenity-chips">{l.amenities.map((a) => <span key={a} className="amenity-chip">{a}</span>)}</div>
-            </div>
-          )}
-
-          <div className="frost-card" style={{ marginTop: 22 }}>
-            <h3 style={{ marginTop: 0 }}>Where you'll be</h3>
-            <p className="card-meta" style={{ marginTop: 0 }}>{l.area}, {l.city}</p>
-            <div className="map-wrap">
-              <Suspense fallback={<div className="map-loading">Loading map…</div>}>
-                <MapView lat={l.lat} lng={l.lng} label={`${l.area}, ${l.city}`} />
-              </Suspense>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="frost-card">
-            <div className="detail-price">{inrShort(l.rent)}<small>/month</small></div>
-            {l.deposit ? <div className="card-meta" style={{ marginTop: 2 }}>+ {inr(l.deposit)} deposit</div> : null}
-
-            <div className="owner-box">
-              <div className="avatar">{l.owner_avatar ? <img src={l.owner_avatar} alt={l.owner_name} /> : (l.owner_name || '?')[0].toUpperCase()}</div>
-              <div>
-                <div style={{ fontWeight: 700 }}>{l.owner_name}</div>
-                <div className="card-meta">Listing owner</div>
-              </div>
-            </div>
-
-            {isMine ? (
-              <div>
-                <div className="alert ok" style={{ marginTop: 0 }}>This is your listing.</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                  <Link to="/dashboard" className="btn btn-outline" style={{ flex: 1, textAlign: 'center' }}>Manage in dashboard</Link>
-                  <button className="btn btn-danger" onClick={deleteListing}>Delete</button>
+      {loading ? <div className="empty">Searching…</div> : (
+        listings.length === 0
+          ? <div className="empty"><h3>No homes match</h3><p>Try widening the budget{nearLabel ? ', searching a different landmark,' : ''} or clearing a filter.</p></div>
+          : (
+            <div className={`browse-split ${mobileView === 'map' ? 'show-map' : 'show-list'}`} style={{ marginBottom: 56 }}>
+              <div className="browse-list">
+                <div className="grid">
+                  {listings.map((l) => (
+                    <div key={l.id} onMouseEnter={() => setActivePin(l.id)} onMouseLeave={() => setActivePin(null)}>
+                      <ListingCard listing={l} onToggleSave={toggleSave} compact />
+                    </div>
+                  ))}
                 </div>
               </div>
-            ) : isAdmin ? (
-              <div className="alert info" style={{ marginTop: 0 }}>Viewing as admin — <Link to="/admin" style={{ fontWeight: 700 }}>open Moderation</Link>.</div>
-            ) : (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button className="btn btn-brand" style={{ flex: 1 }} onClick={startChat}>Chat with owner</button>
-                <button className="btn btn-outline" onClick={toggleSave}>{l.is_saved ? '♥ Saved' : '♡ Save'}</button>
+              <div className="browse-map">
+                <Suspense fallback={<div className="map-loading">Loading map…</div>}>
+                  <ListingsMap listings={listings} activeId={activePin} onPinClick={(id) => navigate(`/listing/${id}`)} />
+                </Suspense>
               </div>
-            )}
-
-            {notice && <div className="alert ok" style={{ marginTop: 14 }}>{notice}</div>}
-
-            {!isOwner && (
-              <>
-                <h4 className="serif" style={{ margin: '22px 0 4px', fontSize: 18 }}>Request a visit</h4>
-                <label className="label">Preferred date & time</label>
-                <input className="input" type="datetime-local" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
-                <label className="label">Note for the owner (optional)</label>
-                <input className="input" placeholder="e.g. weekday evenings work best" value={visitNote} onChange={(e) => setVisitNote(e.target.value)} />
-                <button className="btn btn-outline" style={{ marginTop: 12, width: '100%' }} onClick={requestVisit}>Request visit</button>
-
-                <button className="btn btn-ghost btn-sm" style={{ marginTop: 14 }} onClick={() => setShowReport(!showReport)}>
-                  Report this listing
-                </button>
-                {showReport && (
-                  <div style={{ marginTop: 8 }}>
-                    <select className="select" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
-                      {REPORT_REASONS.map((r) => <option key={r}>{r}</option>)}
-                    </select>
-                    <textarea className="textarea" style={{ marginTop: 8 }} placeholder="Anything we should know?" value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} />
-                    <button className="btn btn-danger btn-sm" style={{ marginTop: 8 }} onClick={submitReport}>Submit report</button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+            </div>
+          )
+      )}
     </div>
   );
 }

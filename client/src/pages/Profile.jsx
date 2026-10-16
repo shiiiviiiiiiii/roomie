@@ -1,6 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../api';
+import { api, bustApiCache } from '../api';
 import { useAuth } from '../App';
 import { timeAgo } from '../format';
 import ProfilePhotoPicker from '../components/ProfilePhotoPicker';
@@ -50,6 +50,7 @@ export default function Profile() {
         alert_lng: form.alerts_enabled ? form.alert_lng : null,
       };
       const { user: u } = await api('/api/auth/me', { method: 'PATCH', body });
+      bustApiCache();
       setUser(u); setSaved(true); setEditing(false);
     } catch (err) { setError(err.message); }
   };
@@ -58,6 +59,7 @@ export default function Profile() {
     setError('');
     try {
       const { user: u } = await api('/api/auth/me', { method: 'PATCH', body: { avatar_url: url } });
+      bustApiCache();
       setUser(u);
     } catch (err) { setError(err.message); }
   };

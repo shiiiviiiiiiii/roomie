@@ -7,10 +7,11 @@ const express = require('express');
 const store = require('../store');
 const { validate, idParam } = require('../middleware/validate');
 const { optionalViewerUid } = require('../middleware/optionalAuth');
+const { cache } = require('../cache');
 
 const router = express.Router();
 
-router.get('/:id', validate({ params: idParam }), async (req, res, next) => {
+router.get('/:id', validate({ params: idParam }), cache(60), async (req, res, next) => {
   try {
     const vid = await optionalViewerUid(req);
     const profile = await store.getPublicProfile(req.params.id, vid);

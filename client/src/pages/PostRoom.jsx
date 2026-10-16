@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api';
+import { api, bustApiCache } from '../api';
 // Leaflet is heavy — load it only when the picker renders.
 const LocationPicker = lazy(() => import('../components/LocationPicker'));
 import { CITIES, BHK_OPTIONS, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, AMENITY_OPTIONS, inr, formatDate } from '../format';
@@ -66,6 +66,7 @@ export default function PostRoom() {
         method: 'POST',
         body: { ...form, rent: Number(form.rent), deposit: form.deposit ? Number(form.deposit) : null },
       });
+      bustApiCache();
       navigate(`/listing/${listing.id}`);
     } catch (e) { setError(e.message); setSaving(false); }
   };
