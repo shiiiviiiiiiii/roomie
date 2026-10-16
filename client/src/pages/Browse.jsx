@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { CITIES, BHK_OPTIONS, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, inrShort } from '../format';
 import ListingCard from '../components/ListingCard';
-import ListingsMap from '../components/ListingsMap';
+// Leaflet is heavy (~150KB) — load it only when the map is actually shown.
+const ListingsMap = lazy(() => import('../components/ListingsMap'));
 import PlaceSearch from '../components/PlaceSearch';
 import { useAuth } from '../App';
 
@@ -211,7 +212,9 @@ export default function Browse() {
                 </div>
               </div>
               <div className="browse-map">
-                <ListingsMap listings={listings} activeId={activePin} onPinClick={(id) => navigate(`/listing/${id}`)} />
+                <Suspense fallback={<div className="map-loading">Loading map…</div>}>
+                  <ListingsMap listings={listings} activeId={activePin} onPinClick={(id) => navigate(`/listing/${id}`)} />
+                </Suspense>
               </div>
             </div>
           )

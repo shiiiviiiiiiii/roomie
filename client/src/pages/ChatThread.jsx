@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { timeAgo } from '../format';
 import { useAuth, useToast } from '../App';
+import { thumb } from '../img';
 
 export default function ChatThread() {
   const { id } = useParams();
@@ -78,7 +79,7 @@ export default function ChatThread() {
       <div className="chat-split">
         <aside className="frost-card chat-peer">
           <Link to="/chats" className="chat-back">← All chats</Link>
-          <div className="avatar lg" style={{ margin: '14px auto 10px' }}>{other.avatar_url ? <img src={other.avatar_url} alt={other.name} /> : initial}</div>
+          <div className="avatar lg" style={{ margin: '14px auto 10px' }}>{other.avatar_url ? <img src={thumb(other.avatar_url, 200)} alt={other.name} /> : initial}</div>
           <h3 className="serif" style={{ textAlign: 'center', margin: '0 0 2px', fontSize: 22 }}>
             {other.id ? <Link to={`/u/${other.id}`}>{other.name || 'Roomie user'}</Link> : (other.name || 'Roomie user')}
           </h3>

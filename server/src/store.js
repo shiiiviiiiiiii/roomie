@@ -165,12 +165,14 @@ function listingShape(l, { owner, isSaved, includeAddress = false } = {}) {
 
 async function hydrateListings(docs, viewerUid) {
   const listings = docs.map(docShape).filter(Boolean);
-  const owners = await getUsersByIds(listings.map((l) => l.user_id));
-  let savedSet = new Set();
-  if (viewerUid) {
-    const snap = await db.collection('saves').where('user_id', '==', String(viewerUid)).get();
-    savedSet = new Set(snap.docs.map((d) => d.data().listing_id));
-  }
+  // Independent fetches — run in parallel (see queryListings).
+  const [owners, savedSet] = await Promise.all([
+    getUsersByIds(listings.map((l) => l.user_id)),
+    viewerUid
+      ? db.collection('saves').where('user_id', '==', String(viewerUid)).get()
+          .then((snap) => new Set(snap.docs.map((d) => d.data().listing_id)))
+      : Promise.resolve(new Set()),
+  ]);
   return listings.map((l) =>
     listingShape(l, {
       owner: owners.get(String(l.user_id)),
@@ -281,12 +283,15 @@ async function queryListings({
   const total = rows.length;
   const page = rows.slice(Number(offset) || 0, (Number(offset) || 0) + (Number(limit) || 24));
 
-  const owners = await getUsersByIds(page.map((l) => l.user_id));
-  let savedSet = new Set();
-  if (viewerUid) {
-    const s = await db.collection('saves').where('user_id', '==', String(viewerUid)).get();
-    savedSet = new Set(s.docs.map((d) => d.data().listing_id));
-  }
+  // Owners and saves are independent — fetch in parallel so a browse request
+  // costs 2 Firestore round-trips instead of 3 (each crosses the Pacific).
+  const [owners, savedSet] = await Promise.all([
+    getUsersByIds(page.map((l) => l.user_id)),
+    viewerUid
+      ? db.collection('saves').where('user_id', '==', String(viewerUid)).get()
+          .then((s) => new Set(s.docs.map((d) => d.data().listing_id)))
+      : Promise.resolve(new Set()),
+  ]);
   const listings = page.map((l) =>
     listingShape(l, { owner: owners.get(String(l.user_id)), isSaved: savedSet.has(l.id) })
   );
@@ -493,12 +498,14 @@ async function listVisits(uid) {
     if (v && !seen.has(v.id)) { seen.add(v.id); visits.push(v); }
   }
   visits.sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+  // Batched read instead of one get() per visit (N+1).
+  const listingIds = [...new Set(visits.map((v) => String(v.listing_id)).filter(Boolean))];
   const listings = new Map();
-  for (const v of visits) {
-    if (!listings.has(v.listing_id)) {
-      const ldoc = await db.collection('listings').doc(String(v.listing_id)).get();
-      listings.set(v.listing_id, docShape(ldoc));
-    }
+  if (listingIds.length) {
+    const ldocs = await db.getAll(
+      ...listingIds.map((id) => db.collection('listings').doc(id))
+    );
+    ldocs.forEach((ldoc, i) => listings.set(listingIds[i], docShape(ldoc)));
   }
   const people = await getUsersByIds(visits.flatMap((v) => [v.requester_id, v.owner_id]));
   return visits.map((v) => {

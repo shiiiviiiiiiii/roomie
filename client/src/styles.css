@@ -1093,6 +1093,18 @@ h3,
   margin-top: 14px;
 }
 
+/* Fallback shown while a lazy-loaded Leaflet map chunk downloads. */
+.map-loading {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
 .map-note {
   font-size: 12.5px;
   color: var(--muted);

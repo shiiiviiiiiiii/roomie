@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
-import LocationPicker from '../components/LocationPicker';
+// Leaflet is heavy — load it only when the picker renders.
+const LocationPicker = lazy(() => import('../components/LocationPicker'));
 import { CITIES, BHK_OPTIONS, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, AMENITY_OPTIONS, inr, formatDate } from '../format';
 
 const STEPS = ['Basics', 'Rent & terms', 'Details', 'Photos', 'Review'];
@@ -98,12 +99,14 @@ export default function PostRoom() {
             </div>
             <label className="label">Street address (optional — only approximate location is shown publicly)</label>
             <input className="input" placeholder="Flat / building / street" value={form.address} onChange={(e) => set('address', e.target.value)} /><label className="label">Pin your location on the map *</label>
-            <LocationPicker
-              city={form.city}
-              lat={form.lat}
-              lng={form.lng}
-              onPick={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))}
-            />
+            <Suspense fallback={<div className="map-loading">Loading map…</div>}>
+              <LocationPicker
+                city={form.city}
+                lat={form.lat}
+                lng={form.lng}
+                onPick={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))}
+              />
+            </Suspense>
 
             <label className="label">What are you offering? *</label>
             <div className="chip-select">

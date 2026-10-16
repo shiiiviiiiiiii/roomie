@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../api';
 import { inr, inrShort, ROOM_TYPE_LABELS, FURNISHING_LABELS, TENANT_LABELS, timeAgo, formatDate } from '../format';
-import MapView from '../components/MapView';
+import { thumb } from '../img';
+// Leaflet is heavy — load it only when the map section renders.
+const MapView = lazy(() => import('../components/MapView'));
 import { useAuth } from '../App';
 
 const REPORT_REASONS = ['Spam or scam', 'Wrong details', 'Already rented', 'Inappropriate content', 'Other'];
@@ -87,11 +89,11 @@ export default function ListingDetail() {
       <div className="detail-hero">
         {l.images && l.images.length > 0 ? (
           <>
-            <img className="gallery-main" src={l.images[photo]} alt={l.title} />
+            <img className="gallery-main" src={thumb(l.images[photo], 1200)} alt={l.title} />
             {l.images.length > 1 && (
               <div className="gallery-thumbs">
                 {l.images.map((src, i) => (
-                  <img key={i} src={src} alt="" className={i === photo ? 'active' : ''} onClick={() => setPhoto(i)} />
+                  <img key={i} src={thumb(src, 200)} alt="" className={i === photo ? 'active' : ''} onClick={() => setPhoto(i)} />
                 ))}
               </div>
             )}
@@ -143,7 +145,11 @@ export default function ListingDetail() {
           <div className="frost-card" style={{ marginTop: 22 }}>
             <h3 style={{ marginTop: 0 }}>Where you'll be</h3>
             <p className="card-meta" style={{ marginTop: 0 }}>{l.area}, {l.city}</p>
-            <div className="map-wrap"><MapView lat={l.lat} lng={l.lng} label={`${l.area}, ${l.city}`} /></div>
+            <div className="map-wrap">
+              <Suspense fallback={<div className="map-loading">Loading map…</div>}>
+                <MapView lat={l.lat} lng={l.lng} label={`${l.area}, ${l.city}`} />
+              </Suspense>
+            </div>
           </div>
         </div>
 

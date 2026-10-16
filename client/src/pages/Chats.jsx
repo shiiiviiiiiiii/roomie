@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api';
 import { timeAgo } from '../format';
 import { useAuth } from '../App';
+import { thumb } from '../img';
 
 export default function Chats() {
   const [convs, setConvs] = useState([]);
@@ -31,7 +32,7 @@ export default function Chats() {
             const o = other(c);
             return (
               <Link key={c.id} to={`/chats/${c.id}`} className="notif">
-                <div className="avatar">{o.avatar_url ? <img src={o.avatar_url} alt={o.name} /> : (o.name || '?')[0].toUpperCase()}</div>
+                <div className="avatar">{o.avatar_url ? <img src={thumb(o.avatar_url, 200)} alt={o.name} /> : (o.name || '?')[0].toUpperCase()}</div>
                 <div className="body">
                   <div className="title">{o.name} <span className="card-meta">· {c.listing_title}</span></div>
                   <div className="text">{c.last_message ? c.last_message.body : 'No messages yet'}</div>

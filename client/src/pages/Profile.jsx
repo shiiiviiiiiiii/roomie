@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../App';
 import { timeAgo } from '../format';
 import ProfilePhotoPicker from '../components/ProfilePhotoPicker';
-import LocationPicker from '../components/LocationPicker';
+// Leaflet is heavy — load it only when the alert picker renders.
+const LocationPicker = lazy(() => import('../components/LocationPicker'));
+import { thumb } from '../img';
 
 export default function Profile() {
   const { user, setUser } = useAuth();
@@ -65,7 +67,7 @@ export default function Profile() {
   return (
     <div className="container">
       <div className="profile-head dots-light">
-        <div className="avatar lg">{user.avatar_url ? <img src={user.avatar_url} alt={user.name} /> : initial}</div>
+        <div className="avatar lg">{user.avatar_url ? <img src={thumb(user.avatar_url, 400)} alt={user.name} /> : initial}</div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <h1>{user.name}</h1>
           <p className="p-sub">{user.email}{user.created_at ? ` · joined ${timeAgo(user.created_at)}` : ''}</p>
@@ -175,10 +177,12 @@ export default function Profile() {
                   placeholder="e.g. Gachibowli, Hyderabad"
                 />
                 <div style={{ marginTop: 10 }}>
-                  <LocationPicker
-                    lat={form.alert_lat} lng={form.alert_lng}
-                    onPick={(lat, lng) => setForm((f) => ({ ...f, alert_lat: lat, alert_lng: lng }))}
-                  />
+                  <Suspense fallback={<div className="map-loading">Loading map…</div>}>
+                    <LocationPicker
+                      lat={form.alert_lat} lng={form.alert_lng}
+                      onPick={(lat, lng) => setForm((f) => ({ ...f, alert_lat: lat, alert_lng: lng }))}
+                    />
+                  </Suspense>
                 </div>
               </>
             )}

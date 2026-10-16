@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
+import { thumb } from '../img';
 import { inrShort, ROOM_TYPE_LABELS, FURNISHING_LABELS } from '../format';
 
 export default function ListingCard({ listing, onToggleSave, compact }) {
-  const img = listing.images && listing.images[0];
+  const img = thumb(listing.images && listing.images[0], 600);
   return (
     <div className="card">
       <Link to={`/listing/${listing.id}`} aria-label={listing.title}>

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { timeAgo } from '../format';
 import ListingCard from '../components/ListingCard';
+import { thumb } from '../img';
 
 // What other users see: public fields only, plus active listings.
 // Email/phone are never exposed — contact goes through in-app chat.
@@ -24,7 +25,7 @@ export default function PublicProfile() {
   return (
     <div className="container">
       <div className="profile-head dots-light">
-        <div className="avatar lg">{p.avatar_url ? <img src={p.avatar_url} alt={p.name} /> : initial}</div>
+        <div className="avatar lg">{p.avatar_url ? <img src={thumb(p.avatar_url, 400)} alt={p.name} /> : initial}</div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <h1>{u.name}</h1>
           <p className="p-sub">
