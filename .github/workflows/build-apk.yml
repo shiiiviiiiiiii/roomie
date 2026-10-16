@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Capacitor Android
+        run: npm install @capacitor/android@8
+
       - name: Build web app (pointing at the live API)
         run: VITE_API_BASE=https://findyourroomie.netlify.app npm run build
 
