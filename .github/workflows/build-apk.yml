@@ -34,14 +34,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Capacitor
-        run: npm install @capacitor/core@8 @capacitor/cli@8 @capacitor/android@8
-
       - name: Build web app (pointing at the live API)
         run: VITE_API_BASE=https://findyourroomie.netlify.app npm run build
 
-      - name: Sync Capacitor
-        run: npx cap sync android
+      - name: Copy web assets into Android project
+        # cap sync is flaky in CI; the android/ folder is already configured,
+        # so just copy the fresh build output into it.
+        run: |
+          rm -rf android/app/src/main/assets/public
+          mkdir -p android/app/src/main/assets/public
+          cp -R dist/. android/app/src/main/assets/public/
+          ls android/app/src/main/assets/public/index.html
 
       - name: Build debug APK
         run: |
